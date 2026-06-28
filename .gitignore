@@ -1,0 +1,24 @@
+# ---- SECRETS / AUTH (never commit) ----
+bot_secrets.json
+wa-daemon/auth/
+wa-daemon/auth*
+*.session
+.env
+
+# ---- runtime-mutable state / logs ----
+bot_config.json
+bot_v22_state.json
+bot_state.json
+*.log
+*.corrupt
+*.tmp
+
+# ---- large / regenerable data ----
+btc_15m_full.csv
+btc_funding.csv
+*.csv
+
+# ---- deps / caches ----
+wa-daemon/node_modules/
+__pycache__/
+*.pyc

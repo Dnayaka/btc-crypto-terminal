@@ -1,0 +1,11 @@
+{
+  "live": false,
+  "size_usd": 100,
+  "leverage": 1,
+  "symbol": "BTC/USDT:USDT",
+  "sleeves": {
+    "v20": true
+  },
+  "max_size_usd": 500,
+  "note": "live=false -> paper (sinyal+WA). live=true -> trade UANG ASLI. v20-only. Ubah size via admin :8789"
+}
