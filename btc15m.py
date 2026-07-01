@@ -89,11 +89,19 @@ def build():
         xt=int(ot[xb]//1000) if xb<len(ot) else int(ot[-1]//1000)
         pk=max(pk,eq); mdd=max(mdd,(pk-eq)/pk if pk>0 else 0.0)
         eqc.append([xt, round(eq,5)])
+    # buy-and-hold pembanding: harga close ternormalisasi dari bar SAMA dgn awal eqc (apple-to-apple period)
+    close_arr=df['close'].to_numpy(float)
+    if eqc:
+        eb0=int(t['exit_bar'].min()); c0=close_arr[max(0,eb0-1)] if eb0>0 else close_arr[0]
+        step=max(1,(n-eb0)//400)   # downsample ~400 titik biar json ga bengkak
+        hold=[[int(ot[i]//1000), round(float(close_arr[i]/c0),5)] for i in range(eb0,n,step)]
+    else: hold=[]
     perf={"ret":round((eq-1)*100,1),"maxdd":round(mdd*100,1),"n":int(len(t)),"wr":res['wr'],
-          "start":eqc[0][0] if eqc else 0,"end":eqc[-1][0] if eqc else 0,"cal":round((eq-1)/mdd,1) if mdd>0 else 0}
+          "start":eqc[0][0] if eqc else 0,"end":eqc[-1][0] if eqc else 0,"cal":round((eq-1)/mdd,1) if mdd>0 else 0,
+          "hold_ret":round((hold[-1][1]-1)*100,1) if hold else 0}
     out={"_ts":int(time.time()),"bars":bars,"markers":mk,"trades":trades,
          "stats":{"n":int(res['n']),"wr":res['wr'],"ret":res['ret'],"nl":res.get('nl'),"ns":res.get('ns')},
-         "equity":eqc,"perf":perf,
+         "equity":eqc,"hold":hold,"perf":perf,
          "last":df['open_time'].iloc[-1]/1000}
     json.dump(out,open(OUT,"w"))
     print(f"btc_v20.json: {len(bars)} bar, {len(mk)} marker, {res['n']} trade WR{res['wr']} -> {OUT}")
