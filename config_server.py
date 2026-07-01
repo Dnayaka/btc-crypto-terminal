@@ -1053,66 +1053,6 @@ function clk(){$('ts').textContent=new Date().toUTCString().slice(5,22)+' UTC'}
 stat();clk();setInterval(stat,30000);setInterval(clk,1000);
 </script></body></html>"""
 
-PERFORMA=HEAD+"<title>DNAYAKA · v20 Performa</title></head><body>"+ATMOS+r"""
-<div class=wrap style="max-width:1000px;margin:0 auto;padding:24px 18px">
- <header style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px">
-  <div style="font-family:var(--disp);font-weight:700;font-size:21px;color:var(--ink)">DNAYAKA <span style="color:var(--amber)">v20</span><span style="color:var(--dim);font-weight:400;font-size:12px;letter-spacing:.14em;margin-left:8px">PERFORMA STRATEGI</span></div>
-  <a href="/" style="color:var(--amber);text-decoration:none;font-size:11px;border:1px solid var(--line);padding:6px 11px;border-radius:4px">◂ TERMINAL</a>
- </header>
- <div style="margin-bottom:14px;padding:11px 14px;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:6px;background:var(--panel);font-size:12px;color:var(--dim);line-height:1.6">
-  <b style="color:var(--amber2)">Baca dulu:</b> angka di bawah = hasil <b>uji histori (backtest)</b> pada data asli, leverage 1×, fee dihitung. Ini <b>bukan profit yang dijamin</b>. Realistis ke depan jauh lebih kecil, dan <b>drawdown</b> (rugi sementara dari puncak) bisa lebih dalam dari closed-DD. Pakai modal yang siap hilang · bukan saran finansial.
- </div>
- <div class=symseg id=pfSeg style="margin-bottom:16px"><button data-s=BTCUSDT class=act>BTC</button><button data-s=ETHUSDT>ETH</button><button data-s=SOLUSDT>SOL</button></div>
- <div id=pfWarn style="display:none;margin-bottom:14px;padding:10px 14px;border:1px solid var(--down);border-radius:6px;background:rgba(255,69,58,.06);font-size:12px;color:var(--down)"></div>
- <div id=stats style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px"></div>
- <div class=panel style="padding:16px;margin-bottom:14px">
-  <div class=panel-h><span class=t><span class=sq></span>SIMULATOR · Equity &amp; Leverage</span></div>
-  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
-   <div><label style="display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Modal awal ($)</label><input id=simCap type=number value=1000 min=1 style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);padding:8px 10px;width:130px"></div>
-   <div><label style="display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Leverage</label><input id=simLev type=number value=1 min=1 max=20 step=0.5 style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);padding:8px 10px;width:90px"></div>
-   <button onclick=runSim() style="padding:9px 18px;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--amber);color:#160c00;border:0;border-radius:6px;cursor:pointer;font-size:12px">Hitung</button>
-  </div>
-  <div id=simOut style="margin-top:12px;font-size:12.5px;line-height:1.8;color:var(--dim)"></div>
- </div>
- <div class=panel style="padding:16px"><div class=panel-h><span class=t><span class=sq></span>EQUITY CURVE vs BUY&amp;HOLD · modal x1 (log scale)</span><span id=period style="font-size:10px;color:var(--dim)"></span></div><div style="display:flex;gap:14px;font-size:11px;margin:6px 0 0"><span><span style="color:#ff8c1a">■</span> Strategi v20</span><span><span style="color:#7a9cff">■</span> Buy &amp; Hold</span></div><div id=eq style="height:430px"></div></div>
- <div style="font-size:11px;color:var(--dim);line-height:1.6;margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-  <b>Backtest</b> di data Binance ASLI (lev ≤1×, fee included). Hasil masa lalu BUKAN jaminan masa depan — forward jujur jauh lebih kecil. Bukan saran finansial.
- </div>
-</div>
-<script>
-const $=id=>document.getElementById(id);
-const fmtn=n=>Number(Math.round(n)).toLocaleString('en-US');
-const PFEP={BTCUSDT:'/api/btc_v20',ETHUSDT:'/api/eth_v20',SOLUSDT:'/api/sol_v20'};
-const PFWARN={SOLUSDT:'⚠ SOL: hasil MARGINAL (Calmar rendah), belum direkomendasikan buat modal sungguhan — ditampilkan buat transparansi riset, bukan ajakan pakai.'};
-let eqChart=null,eqS=null,holdS=null,curPerf=null;
-function runSim(){
- if(!curPerf)return;const cap=Math.max(1,+$('simCap').value||1000),lev=Math.max(1,+$('simLev').value||1);
- const ret=curPerf.ret/100*lev, dd=Math.min(99,curPerf.maxdd*lev);   // aproksimasi linear: DD & ret scale ~leverage (lihat README caveat)
- const finalCap=cap*(1+ret); const ruin=dd>=95;
- let h='Modal <b style="color:var(--ink)">$'+fmtn(cap)+'</b> · leverage <b style="color:var(--ink)">'+lev+'x</b> → estimasi akhir <b style="color:'+(ruin?'var(--down)':'var(--up)')+'">$'+fmtn(finalCap)+'</b> ('+(ret>=0?'+':'')+(ret*100).toFixed(0)+'%)<br>';
- h+='Estimasi max drawdown ter-leverage: <b style="color:var(--down)">-'+dd.toFixed(1)+'%</b>'+(ruin?' <b style="color:var(--down)">⚠ RISIKO LIKUIDASI TINGGI (DD≈100%)</b>':'');
- h+='<br><span style="font-size:10.5px;opacity:.75">Aproksimasi linear (return & DD closed-trade × leverage) — BUKAN simulasi ulang engine per-trade, dan mark-to-market real bisa lebih dalam dari closed-DD. Cuma buat gambaran kasar risiko.</span>';
- $('simOut').innerHTML=h;
-}
-function loadPf(sym){
- $('pfWarn').style.display=PFWARN[sym]?'block':'none'; if(PFWARN[sym])$('pfWarn').textContent=PFWARN[sym];
- fetch(PFEP[sym]).then(r=>r.json()).then(v=>{
-  const p=v.perf||{},eq=v.equity||[],hold=v.hold||[];curPerf=p;runSim();
-  const card=(l,val,col)=>'<div class=panel style="padding:13px 15px"><div class=label>'+l+'</div><div style="font-family:var(--mono);font-weight:600;font-size:23px;color:'+(col||'var(--ink)')+';margin-top:5px">'+val+'</div></div>';
-  $('stats')['inner'+'HTML']=card('TOTAL RETURN','+'+fmtn(p.ret)+'%','var(--up)')+card('WIN RATE',p.wr+'%')+card('MAX DRAWDOWN','-'+p.maxdd+'%','var(--down)')+card('CALMAR',fmtn(p.cal))+card('TRADES',fmtn(p.n))+card('FINAL EQUITY','x'+(eq.length?eq[eq.length-1][1].toFixed(1):'-'),'var(--amber)')+card('BUY & HOLD',(p.hold_ret>=0?'+':'')+fmtn(p.hold_ret)+'%',p.hold_ret>=p.ret?'var(--up)':'var(--dim)');
-  if(p.start){const d=t=>new Date(t*1000).toISOString().slice(0,10);$('period').textContent=d(p.start)+' → '+d(p.end);}
-  if(!eqChart){eqChart=LightweightCharts.createChart($('eq'),{layout:{background:{color:'transparent'},textColor:'#8a7f63',fontFamily:'IBM Plex Mono',fontSize:11},grid:{vertLines:{color:'rgba(255,140,26,.03)'},horzLines:{color:'rgba(255,140,26,.03)'}},timeScale:{timeVisible:false,borderColor:'#1b1810'},rightPriceScale:{borderColor:'#1b1810',mode:1}});
-   eqS=eqChart.addAreaSeries({lineColor:'#ff8c1a',topColor:'rgba(255,140,26,.30)',bottomColor:'rgba(255,140,26,.02)',lineWidth:2,priceLineVisible:false});
-   holdS=eqChart.addLineSeries({color:'#7a9cff',lineWidth:1.5,priceLineVisible:false});
-   const rs=()=>eqChart.applyOptions({width:$('eq').clientWidth,height:430});rs();new ResizeObserver(rs).observe($('eq'));}
-  eqS.setData(eq.map(e=>({time:e[0],value:e[1]})));
-  holdS.setData(hold.map(e=>({time:e[0],value:e[1]})));
-  eqChart.timeScale().fitContent();
- });}
-$('pfSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('pfSeg').querySelectorAll('button').forEach(x=>x.classList.remove('act'));b.classList.add('act');loadPf(b.dataset.s);});
-loadPf('BTCUSDT');
-</script></body></html>"""
-
 LOGIN=HEAD+"<title>DNAYAKA · Login</title></head><body>"+ATMOS+r"""
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
  <form method=POST action="/login" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:34px 30px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.7)">
@@ -1243,9 +1183,9 @@ class H(BaseHTTPRequestHandler):
         if path=="/admin":                              # admin-role only (localhost = admin)
             if not (local or (usr and is_admin(usr))): return self._redirect("/login")
             return self._s(200,"text/html",ADMINP)
-        if path in ("/","/saham","/performa"):          # page butuh login (kecuali localhost)
+        if path in ("/","/saham"):          # page butuh login (kecuali localhost) -- /performa PINDAH ke admin :8789
             if not (local or usr): return self._redirect("/login")
-            return self._s(200,"text/html", MAIN if path=="/" else (STOCKS if path=="/saham" else PERFORMA))
+            return self._s(200,"text/html", MAIN if path=="/" else STOCKS)
         if path.startswith("/api/") and not (local or usr or self._auth_ok()):   # API anti-scrape: localhost ATAU login (cookie) ATAU service basic-auth (ai_gen)
             return self._s(401,"application/json",'{"error":"login required"}')
         if path=="/api/btc_v20":
