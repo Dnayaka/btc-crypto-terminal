@@ -160,6 +160,135 @@ $('pfSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('pfSeg').query
 loadPf('BTCUSDT');
 </script></body></html>"""
 
+STOCKS=_PFHEAD+"<title>DNAYAKA · Saham IDX · PRIVATE</title></head><body>"+_PFATMOS+r"""
+<div class=fnbar><span><b>F1</b> IHSG</span><span><b>F2</b> SINYAL</span><span><b>F3</b> WATCHLIST</span><span><b>F4</b> BANDARMOLOGY</span><span id=fnclock style="margin-left:auto;color:var(--amber)"></span></div>
+<div class=wrap>
+ <header class=hdr><div class=brand><span class=bt style="font-size:15px">▦</span> DNAYAKA<span style="color:var(--dim);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-left:9px">Saham IDX</span><span class=cur></span></div>
+  <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/">◂ ADMIN</a><span class=tag>SAHAM · PRIVATE</span></div></div></header>
+ <section class=hero>
+  <div class=label>IHSG · Jakarta Composite Index</div>
+  <div class=bigprice id=ihsgpx>------</div>
+  <div class="pxsub rv d1"><b id=ihsgchg>—</b> &nbsp;·&nbsp; REGIME <b id=ihsgreg>—</b> &nbsp;·&nbsp; <span id=ihsgbias class=aibias>—</span></div>
+  <div class=gauges>
+   <div class="gauge rv d2"><div class=g-l>RSI · 14</div><div class=g-v id=g_rsi>—</div></div>
+   <div class="gauge rv d2"><div class=g-l>MACD hist</div><div class=g-v id=g_macd>—</div></div>
+   <div class="gauge rv d3"><div class=g-l>vs SMA200</div><div class=g-v id=g_sma style="font-size:17px">—</div></div>
+   <div class="gauge rv d3"><div class=g-l>52w Range</div><div class=g-v id=g_52 style="font-size:13px">—</div></div>
+   <div class="gauge rv d4"><div class=g-l>Support / Resist</div><div class=g-v id=g_sr style="font-size:13px">—</div></div>
+  </div>
+ </section>
+ <div class=grid>
+  <section class="panel span2 rv d2">
+   <div class=panel-h><span class=t><span class=sq></span><span id=chtitle>IHSG · Daily</span></span><div id=mfbox class=mfbox></div></div>
+   <div id=schart style="height:320px;border-radius:4px;overflow:hidden"></div>
+   <div class=rsi-l>RSI · 14</div><div id=srsi style="height:88px;border-radius:4px;overflow:hidden;border-top:1px solid var(--line)"></div>
+   <div id=aibandar1 class=aibandar1 style="display:none"></div>
+  </section>
+  <section class="panel rv d3">
+   <div class=panel-h><span class=t><span class=sq></span>Sinyal Hari Ini</span><span id=sigcount class=aibias>—</span></div>
+   <div id=sigbanner></div><div id=buylist></div>
+  </section>
+  <section class="panel span2 rv d4">
+   <div class=panel-h><span class=t><span class=sq></span><span id=watchh>Watchlist · ter-screen</span></span><span class=label>klik baris → chart</span></div>
+   <div id=watchgrid class=watchgrid></div>
+  </section>
+  <section class="panel span2 rv d5">
+   <div class=panel-h><span class=t><span class=sq></span>AI Bandarmology · Gemini</span><span class=aibias>money-flow read</span></div>
+   <div id=bandaroverall class=aibody><div style="color:var(--dim);font-size:12px">memuat…</div></div>
+   <p style="font-size:10px;color:var(--dim);margin-top:9px;line-height:1.5">⚠️ Pakai <b style="color:var(--amber)">ASING-NET (foreign flow IDX ASLI)</b> + inferensi money-flow. Kode broker per-saham (AK/BK/CC) = premium Stockbit; asing-net = gratis & lebih berguna.</p>
+  </section>
+  <section class="panel span2 rv d5">
+   <div class=panel-h><span class=t><span class=sq></span>Foreign Flow · Asing (IDX, data ASLI)</span><span id=mktforeign class=aibias>—</span></div>
+   <div class=ffgrid>
+    <div><div class=ff-h style="color:var(--up)">▲ ASING BORONG (net beli, Rp M)</div><div id=fbuy class=ffcol></div></div>
+    <div><div class=ff-h style="color:var(--down)">▼ ASING BUANG (net jual, Rp M)</div><div id=fsell class=ffcol></div></div>
+   </div>
+  </section>
+  <section class="panel span2 rv d5">
+   <div class=panel-h><span class=t><span class=sq></span>Top Broker Market-Wide · IDX</span><span id=idxdate class=aibias>—</span></div>
+   <div id=topbrokers class=watchgrid></div>
+   <p style="font-size:10px;color:var(--dim);margin-top:8px">Broker teraktif se-pasar (nilai transaksi hari bursa terakhir, data IDX). Bukan per-saham.</p>
+  </section>
+ </div>
+ <footer class=foot><span>IDX Terminal · public</span><span>data: Yahoo via proxy · daily 2020→now</span><span id=ts>—</span></footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);const SF=n=>Number(n).toLocaleString('en-US');
+let schart,sCandle,sVol,srsiChart,srsiS,curSym='^JKSE',sigData={};
+function RSIc(c,p){p=p||14;let o=Array(c.length).fill(null),g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];if(d>=0)g+=d;else l-=d;}g/=p;l/=p;o[p]=100-100/(1+g/(l||1e-9));for(let i=p+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(p-1)+(d>0?d:0))/p;l=(l*(p-1)+(d<0?-d:0))/p;o[i]=100-100/(1+g/(l||1e-9));}return o;}
+function initS(){
+ const base={layout:{background:{color:'transparent'},textColor:'#8a7f63',fontFamily:'IBM Plex Mono',fontSize:11},grid:{vertLines:{color:'rgba(255,140,26,.03)'},horzLines:{color:'rgba(255,140,26,.03)'}},timeScale:{borderColor:'#1b1810'},rightPriceScale:{borderColor:'#1b1810'},crosshair:{mode:0,vertLine:{color:'#ff8c1a66'},horzLine:{color:'#ff8c1a66'}}};
+ schart=LightweightCharts.createChart($('schart'),base);
+ sCandle=schart.addCandlestickSeries({upColor:'#27d07a',downColor:'#ff453a',borderVisible:false,wickUpColor:'#27d07a',wickDownColor:'#ff453a'});
+ sVol=schart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'v'});sVol.priceScale().applyOptions({scaleMargins:{top:0.85,bottom:0}});
+ srsiChart=LightweightCharts.createChart($('srsi'),Object.assign({},base,{timeScale:{visible:false,borderColor:'#1b1810'}}));
+ srsiS=srsiChart.addLineSeries({color:'#ffb454',lineWidth:1.5,priceLineVisible:false});
+ srsiS.createPriceLine({price:70,color:'rgba(255,69,58,.4)',lineStyle:2,lineWidth:1});srsiS.createPriceLine({price:30,color:'rgba(39,208,122,.4)',lineStyle:2,lineWidth:1});srsiS.createPriceLine({price:50,color:'rgba(138,127,99,.3)',lineStyle:3,lineWidth:1});
+ schart.timeScale().subscribeVisibleLogicalRangeChange(r=>{if(r)srsiChart.timeScale().setVisibleLogicalRange(r);});
+ srsiChart.timeScale().subscribeVisibleLogicalRangeChange(r=>{if(r)schart.timeScale().setVisibleLogicalRange(r);});
+ loadChart('^JKSE','IHSG · Daily');
+}
+function loadChart(sym,title){curSym=sym;$('chtitle').textContent=title;
+ document.querySelectorAll('.sigrow,.wrow').forEach(e=>e.classList.remove('sel'));
+ fetch('http://localhost:8788/api/stock_klines?sym='+encodeURIComponent(sym)).then(r=>r.json()).then(d=>{
+  sCandle.setData(d.map(k=>({time:k.time,open:k.open,high:k.high,low:k.low,close:k.close})));
+  sVol.setData(d.map(k=>({time:k.time,value:k.volume,color:k.close>=k.open?'rgba(39,208,122,.3)':'rgba(255,69,58,.3)'})));
+  const cl=d.map(k=>k.close);const r=RSIc(cl,14);srsiS.setData(d.map((k,i)=>r[i]!=null?{time:k.time,value:+r[i].toFixed(1)}:null).filter(Boolean));
+  sCandle.setMarkers([]);   // IHSG & saham: NO marker buy/sell — strategi cuma BTC (per ticker+TF sendiri)
+  schart.timeScale().fitContent();});
+ showMF(sym);}
+function showMF(sym){
+ const all=[].concat(sigData.buys||[],sigData.watchlist||[]);const it=all.find(x=>x.sym===sym);
+ if(!it){$('mfbox').innerHTML='';$('aibandar1').style.display='none';return;}
+ const fc=it.flow=='akumulasi'?'acc':it.flow=='distribusi'?'dis':'neu';
+ const smc=(it.sm||'').indexOf('AKUMULASI')>=0?'acc':(it.sm||'').indexOf('DISTRIBUSI')>=0?'dis':'neu';
+ $('mfbox').innerHTML='<span class="mfi '+smc+'">'+(it.sm||'?')+'</span>'+
+  '<span class="mfi '+fc+'">'+(it.flow||'').toUpperCase()+'</span>'+
+  '<span>MFI <b>'+it.mfi+'</b></span><span>CMF <b>'+it.cmf+'</b></span>'+
+  '<span>Buy '+it.buy_pct+'%/Sell '+it.sell_pct+'%</span>'+
+  '<span class=bsbar><span class=bb style="flex:'+it.buy_pct+'"></span><span class=ss style="flex:'+it.sell_pct+'"></span></span>'+
+  '<span style="color:var(--dim);font-size:10px">vol-besar akum/dist '+it.big_acc+'/'+it.big_dist+' · OBV '+it.obv_tr+'%</span>';
+ const ab=(sigData.ai_bandar||{})[sym.replace('.JK','')];
+ if(ab){$('aibandar1').style.display='block';$('aibandar1').innerHTML='<b style="color:var(--amber)">🤖 '+sym.replace('.JK','')+' · analisa mendalam:</b> '+ab+(it.diverg?'<br><span style="color:var(--dim);font-size:11px">⤷ '+it.diverg+'</span>':'');}else $('aibandar1').style.display='none';}
+function loadIHSG(){fetch('http://localhost:8788/api/ihsg_ta').then(r=>r.json()).then(t=>{window._ihsg=t;
+ $('ihsgpx').textContent=t.price?SF(t.price):'—';
+ const c=$('ihsgchg');c.textContent=(t.change_pct>=0?'+':'')+t.change_pct+'%';c.className=t.change_pct>=0?'up':'down';
+ $('ihsgreg').textContent=t.regime||'—';
+ const b=t.bias||'NETRAL',cls=b=='BULLISH'?'bullish':b=='BEARISH'?'bearish':'netral';
+ const ib=$('ihsgbias');ib.textContent=b;ib.className='aibias '+cls;
+ $('g_rsi').textContent=t.rsi;$('g_macd').textContent=t.macd_hist;
+ const gs=$('g_sma');gs.textContent=(t.dist_sma200_pct>=0?'+':'')+t.dist_sma200_pct+'%';gs.className='g-v '+(t.dist_sma200_pct>=0?'up':'down');
+ $('g_52').textContent=SF(t.lo52)+'–'+SF(t.hi52);$('g_sr').textContent=SF(t.support)+' / '+SF(t.resistance);});}
+function loadSig(){Promise.all([fetch('http://localhost:8788/api/stock_signal').then(r=>r.json()),fetch('http://localhost:8788/api/broksum').then(r=>r.json()).catch(_=>({}))]).then(([s,brk])=>{sigData=s;window._brk=brk;
+ const t=window._ihsg||{},red=(t.bias=='BEARISH'),buys=s.buys||[];
+ $('sigcount').textContent=buys.length+' beli · '+(s.n_watch||0)+' watch';
+ let bn='';
+ if(buys.length){bn=red
+  ?`<div class=sigwarn>⚠️ IHSG MERAH (${t.regime||'lemah'}). ${buys.length} sinyal beli ini <b>LAWAN tren</b> — formula biasanya nahan. Kalau masuk: kecilkan size &amp; tunggu konfirmasi.</div>`
+  :`<div class=sigok>✓ IHSG ${t.bias||''} — kondisi mendukung. ${buys.length} sinyal sesuai tren &amp; equity curve. Bagi modal ${s.default_K||4} slot, 1x.</div>`;}
+ $('sigbanner').innerHTML=bn;
+ $('buylist').innerHTML=buys.length?buys.map(b=>
+  `<div class="sigrow ${red?'warn':'ok'}" onclick="loadChart('${b.sym}','${b.sym.replace('.JK','')} · Daily')"><span class=sym>${b.sym.replace('.JK','')}</span><span>@ ${SF(b.close)}</span><span style="color:var(--dim)">RSI ${b.rsi4}</span><span style="color:var(--dim)">${b.flow||''}</span></div>`).join('')
+  :`<div class=nosig>⚪ Tidak ada sinyal beli hari ini${red?` — wajar, IHSG ${t.regime||'lemah'}: formula nahan cash (lindungi dari pisau jatuh).`:'.'}</div>`;
+ const w=s.watchlist||[];
+ $('watchh').textContent=`Watchlist · ${w.length} saham ter-screen (klik → chart · • = siap)`;
+ $('watchgrid').innerHTML=w.length?w.map(x=>{const sy=x.sym.replace('.JK','');const smc=(x.sm||'').indexOf('AKUMULASI')>=0?'var(--up)':(x.sm||'').indexOf('DISTRIBUSI')>=0?'var(--down)':'var(--dim)';const ab=(sigData.ai_bandar||{})[sy]||'';const bk=((window._brk||{}).data||{})[sy];
+  return `<div class="wrow${x.ready?' ready':''}" onclick="loadChart('${x.sym}','${sy} · Daily')"><span class=ws>${sy}${x.ready?' •':''} <span style="color:${smc};font-weight:600;font-size:11px">${(x.sm||'-').replace('SM ','▸ ')}</span>${x.foreign_net!=null?` <span style="font-size:10px;color:${x.foreign_net>=0?'var(--up)':'var(--down)'}">· asing ${x.foreign_net>=0?'+':''}${x.foreign_net}M</span>`:''}</span><span class=wm>RSI ${x.rsi4} · buy/sell ${x.buy_pct||'—'}/${x.sell_pct||'—'}% · vol-besar ${x.big_acc||0}↑/${x.big_dist||0}↓ · ${x.uptrend?'uptrend':'&lt;SMA200'}</span>${bk?`<span class=wb><b style="color:var(--up)">▸ beli:</b> ${(bk.top_buy||[]).map(x=>x.code).join(' ')||'-'} <b style="color:var(--down)">jual:</b> ${(bk.top_sell||[]).map(x=>x.code).join(' ')||'-'}</span>`:''}${ab?`<span class=wb><b>🤖 bandar:</b> ${ab}</span>`:''}</div>`;}).join('')
+  :'<div style="color:var(--dim);font-size:12px">tidak ada.</div>';
+ const ab=s.ai_bandar||{};
+ $('bandaroverall').innerHTML=ab._overall?`<div class=cm>${ab._overall}</div>`:'<div style="color:var(--dim);font-size:12px">AI bandar off — set Gemini key di admin (jalankan signal_stocks.py --ai).</div>';
+ const tb=s.top_brokers||[];$('idxdate').textContent=s.idx_date?('IDX '+s.idx_date):'—';
+ $('topbrokers').innerHTML=tb.length?tb.map(b=>`<div class=wrow><span class=ws>${b.code} <span style="font-size:10px;color:var(--dim)">${b.val_b}M</span></span><span class=wm>${(b.name||'').slice(0,28)}</span><span class=wm>${b.freq} freq</span></div>`).join(''):'<div style="color:var(--dim);font-size:12px">jalankan idx_data.py (Proton off) → top broker muncul.</div>';
+ const mfn=s.market_foreign_net,me=$('mktforeign');if(mfn!=null){me.textContent='Pasar net '+(mfn>=0?'+':'')+mfn+' M';me.className='aibias '+(mfn>=0?'bullish':'bearish');}
+ $('fbuy').innerHTML=(s.top_fbuy||[]).map(x=>`<div class=fr><span class=s>${x.code}</span><b style="color:var(--up)">+${x.net}</b></div>`).join('')||'<div style="color:var(--dim);font-size:11px">— (idx_data Proton off)</div>';
+ $('fsell').innerHTML=(s.top_fsell||[]).map(x=>`<div class=fr><span class=s>${x.code}</span><b style="color:var(--down)">${x.net}</b></div>`).join('')||'<div style="color:var(--dim);font-size:11px">—</div>';
+ showMF(curSym);});}
+function clock(){const d=new Date();$('fnclock').textContent=d.toUTCString().slice(17,25)+' UTC';$('ts').textContent=d.toUTCString().slice(5,22)+' UTC';}
+initS();loadIHSG();loadSig();clock();
+document.querySelectorAll('.panel').forEach(p=>{const h=p.querySelector('.panel-h');if(!h||h.querySelector('.mini'))return;const m=document.createElement('span');m.className='mini';m.textContent='–';m.title='minimize / maximize';m.onclick=e=>{e.stopPropagation();p.classList.toggle('collapsed');m.textContent=p.classList.contains('collapsed')?'+':'–';};h.appendChild(m);});
+setInterval(clock,1000);setInterval(loadIHSG,60000);setInterval(loadSig,60000);
+</script></body></html>"""
+
 PAGE=r"""<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>DNAYAKA · Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel=stylesheet>
 <style>:root{--bg:#000;--panel:#070707;--ink:#e8e2d0;--dim:#8a7f63;--amber:#ff8c1a;--up:#27d07a;--down:#ff453a;--line:#1b1810;--mono:'IBM Plex Mono',monospace;--disp:'Bricolage Grotesque',sans-serif}
@@ -208,7 +337,7 @@ input.inp{width:100%;background:var(--bg);border:1px solid var(--line);border-ra
 .modal .cancel{background:transparent;color:var(--dim);border:1px solid var(--line)}
 .modal .ok{color:#0a0700}.modal .ok.buy{background:var(--up)}.modal .ok.sell{background:var(--down);color:#fff}
 </style></head><body>
-<div class=hd><div class=b>DNAYAKA<span>·</span>ADMIN</div><div style="display:flex;gap:8px;align-items:center"><span class="state paper" id=state>PAPER</span><a class=back href="/performa">performa</a><a class=back href="http://localhost:8788" target=_blank>terminal ↗</a></div></div>
+<div class=hd><div class=b>DNAYAKA<span>·</span>ADMIN</div><div style="display:flex;gap:8px;align-items:center"><span class="state paper" id=state>PAPER</span><a class=back href="/performa">performa</a><a class=back href="/saham">saham</a><a class=back href="http://localhost:8788" target=_blank>terminal ↗</a></div></div>
 <div class=px id=px>$—</div>
 <div class=panel><h3>System · BTC v20</h3>
  <div class=switch><b id=livelbl>PAPER · safe</b><label class=phys><input type=checkbox id=live><span class=sl></span></label></div>
@@ -301,6 +430,7 @@ class H(BaseHTTPRequestHandler):
         path=urlparse(self.path).path
         if path=="/": return self._s(200,"text/html",PAGE)
         if path=="/performa": return self._s(200,"text/html",PERFORMA)   # PINDAH dari publik -- private, 2-Jul
+        if path=="/saham": return self._s(200,"text/html",STOCKS)        # PINDAH dari publik -- private, 2-Jul
         if path=="/api/config": return self._s(200,"application/json",json.dumps(load()))
         if path=="/api/fedlive": return self._s(200,"application/json",json.dumps(load_fedlive()))
         if path=="/api/metrics":
