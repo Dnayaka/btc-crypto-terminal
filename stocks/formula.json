@@ -1,0 +1,53 @@
+{
+ "name": "IDX Mean-Reversion v1 (dip-in-uptrend)",
+ "tf": "1d",
+ "universe_size": 76,
+ "config": {
+  "mode": "mr_rsi",
+  "rsi_len": 4,
+  "rsi_buy": 15.0,
+  "sma_exit": 5,
+  "rsi_exit": 65.0,
+  "sma_trend": 200,
+  "tp": 10.0,
+  "sl": 20.0,
+  "max_hold": 10,
+  "min_close": 50.0,
+  "rsi2_or": 0.0,
+  "req_sma50_rising": true,
+  "sma50_rise_win": 5,
+  "min_volval": 10000000000.0
+ },
+ "full": {
+  "n": 353,
+  "wr": 69.7,
+  "mean": 1.213,
+  "pf": 2.05,
+  "tot": 428.2
+ },
+ "holdout": {
+  "n": 139,
+  "wr": 73.4,
+  "mean": 1.574,
+  "pf": 2.87,
+  "tot": 218.8
+ },
+ "per_year": {
+  "2020": 2.509,
+  "2021": 1.471,
+  "2022": 0.486,
+  "2023": 0.368,
+  "2024": 1.211,
+  "2025": 2.704,
+  "2026": 0.757
+ },
+ "perturb": 1.0,
+ "rec_balanced": {
+  "K": 5,
+  "lev": 1.0
+ },
+ "rec_aggressive": {
+  "K": 4,
+  "lev": 1.5
+ }
+}

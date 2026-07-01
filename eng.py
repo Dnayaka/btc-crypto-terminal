@@ -137,9 +137,10 @@ def run(df, cfg=None):
                         nt=lo+gap; trail=nt if np.isnan(trail) else min(trail,nt)
             # time-stop
             if pos!=0 and cf['max_hold']>0 and (i-entry_bar)>=cf['max_hold']:
+                d=1 if pos>0 else -1                       # FIX: capture dir BEFORE pos=0 (dulu last_exit_dir selalu -1)
                 px=c[i]; ret=((px/entry-1) if pos>0 else (entry/px-1)) - 2*fee
                 trades.append((entry_bar,i,pos,entry,px,ret,'time',mfe,mae))
-                pos=0; last_exit_dir=int(np.sign(1 if pos>0 else -1)); last_exit_bar=i
+                pos=0; last_exit_dir=d; last_exit_bar=i
         # 3) signal on bar i close -> pending next open
         if pos==0 and pending==0:
             bse = i - last_exit_bar

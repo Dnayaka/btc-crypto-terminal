@@ -26,6 +26,28 @@ Panduan ngoprek/menambah fitur dashboard trading. **Dashboard = SATU file `confi
   - ⚠️ **Exit slippage (sisa, bukan bug):** SL/TP/trailing dideteksi saat close-bar lalu market-close (granularitas 1 bar). Backtest asumsi fill intrabar di level SL/TP. Trailing chandelier update tiap bar → tak bisa jadi 1 resting-order. Diterima sbg karakteristik bot-polling.
   - **Manual `place_market` di-gate `live`** + leverage hard-cap 1x (footgun ditutup sesi ini).
 
+**6. DUA SWITCH (28-Jun): PAPER/LIVE + TESTNET/MAINNET.** Mode = kombinasi 2 toggle di admin:
+  - `live=false` → **PAPER** (nol order, dimana pun net).
+  - `live=true & net=testnet` → order REAL di **Binance testnet** (uang PALSU, aman validasi eksekusi). ccxt `set_sandbox_mode(True)`.
+  - `live=true & net=mainnet` → **UANG ASLI**. UI: badge merah, confirm dialog "UANG ASLI".
+  - **Key per-net**: `bot_secrets.json` = `{"mainnet":{key,secret},"testnet":{key,secret}}` (backward-compat flat=mainnet). Admin simpan/baca key sesuai net terpilih; testnet & mainnet key BEDA (daftar di testnet.binancefuture.com). Sinyal/data SELALU dari mainnet (real market); cuma EKSEKUSI yg dirute ke net.
+  - Default aman = `net=testnet`. Config field `net` di bot_config.json. `load_keys(net)`/`_exchange(net)` di bot + admin.
+  - **eng.py time-stop bug laten DI-FIX** (btc-terminal copy saja; `last_exit_dir` dulu selalu -1 krn `pos=0` sebelum cek sign). Dormant di v20 (max_hold=0) tapi sudah benar. Copy riset `Documents/claude/eng.py` TAK disentuh.
+  - Tes: live-recon+net-routing 16/16, bot 13/13, eng max_hold=50 jalan, selftest tetap +3327/557/64.3. Harness: scratchpad sesi b3964f21.
+
+**7. AI tambahan: GEMINI (28-Jun) — komentar/analisa, BUKAN keputusan trade.** ⚠️ Sengaja TERPISAH dari eksekusi bot (edge v20 tervalidasi; LLM di jalur trade = risiko). 3 peran:
+  - **Komentar pasar + ringkas berita** di terminal PUBLIK (panel "AI Read · Gemini" + bias bullish/bearish/netral).
+  - **Second opinion** sinyal/posisi bot di ADMIN (tombol → komentar netral live).
+  - **Key Gemini di sisi PRIVAT** (`bot_secrets.json` field `gemini`). Publik NOL key (grep gemini di config_server = 0).
+  - **Alur**: `gemini.py` (helper REST, no SDK) → `ai_gen.py` (cron `5,35 * * * *`, ambil data dari endpoint publik sendiri, panggil `gemini-2.0-flash`, tulis `ai_read.json`) → config_server `/api/ai` cuma BACA file (no key, quota aman walau di-share). Admin `/api/secondopinion` panggil Gemini live.
+  - **Key GRATIS** dari Google AI Studio (aistudio.google.com). Tanpa key → panel "AI off" rapi. `ai_read.json`/`ai_gen.log` gitignored.
+
+**8. CIRCUIT-BREAKER + verifikasi TESTNET (28-Jun, pra-live).**
+  - **Circuit-breaker** (`check_breaker` di bot_v20_funding, dipanggil do_once SEBELUM eksekusi): halt kalau **DD dari puncak ≥ `max_dd_pct`** (default 15%) ATAU **loss beruntun ≥ `max_loss_streak`** (default 6). Trip → flat posisi (live masih on) → `set_config(live=false, halted=true)` → WA "🛑 CIRCUIT BREAKER". Cuma trip saat live=true (lindungi uang asli). Config `bot_config.json "breaker"`. `loss_streak` ditrack di step_v20 tiap exit. Reset: `bot_v22.py --resume` (live tetap OFF, nyalakan manual). Diuji 15/15 (`scratchpad/stress_breaker.py`).
+  - **`verify_testnet.py`**: validasi mekanik eksekusi di Binance testnet (uang palsu). AMAN: refuse kalau net≠testnet (3 gate teruji), selalu flat di akhir. Cek: auth, open long qty-benar, close exact-qty, open short, FLIP, posisi-akhir-flat.
+  - **`TESTNET_CHECKLIST.md`**: checklist FASE 0-5 (daftar key testnet → verify → forward run → uji breaker → go/no-go → cutover mainnet kecil). ⚠️ **Status live: BELUM divalidasi eksekusi nyata** — code matang & lulus mock (44 tes), tapi WAJIB run testnet dulu sebelum mainnet.
+  - **429 quota = per-MODEL, bukan bug.** `call_gemini` punya **fallback chain** (model `lite` dulu = kuota free lebih besar) + retry backoff 3s saat 429. Default: `gemini-2.5-flash-lite → 2.0-flash-lite → flash-lite-latest → 2.5-flash → 2.0-flash`. Override via `bot_config.json "gemini_models"` / env `GEMINI_MODELS`. Diagnosa model yg didukung key: `python3 ai_gen.py --models`. (gemini-1.5-* sudah deprecated di env 2026.) ⚠️ **config_admin = service** → restart `systemctl --user restart bot-admin` kalau ubah `gemini.py` (ai_gen.py fresh tiap run, tak perlu). Cron ai_gen diturunkan ke **hourly** (`5 * * * *`) biar hemat kuota harian.
+
 ---
 
 ## 1. DI MANA FILE-NYA (peta)
@@ -172,3 +194,13 @@ chromium --headless=new --no-sandbox --window-size=1200,2200 --virtual-time-budg
 - [ ] Dark/amber theme toggle (cukup swap CSS variables)
 
 > Pegangan: **backend = adapter data → JSON seragam. Frontend = panel + loadX() + interval. Aesthetic = CSS variables.** Tiga lapis itu bikin nambah aset/saham/indikator jadi gampang.
+
+---
+
+## 9. CHART STRATEGI v20 (TradingView-style) — ATURAN PENTING (29-Jun)
+- **Strategi v20 di-hitung HANYA di timeframe 15m** (engine `eng.py`+`bot_v20_funding.pbsig`, tervalidasi 557 trade WR64.27/+3327%). Sumber: `btc15m.py` → `btc_v20.json` (bars 3000=31hr, markers + `trades[]` {et,xt,entry,tp,sl,ret,win} window ~24000 bar/250hr), endpoint `/api/btc_v20`. Cron 5m incremental gap-fetch (`btc15m.py`, cuma tarik bar baru cache→now via cors.sh, ga boros).
+- **Sinyal buy/sell tetap dari 15m, tapi DITAMPILKAN di TF apapun dgn SNAP ke candle TF** (`snap(t,tf)=floor(t/tfSec)*tfSec`, TFS 15m/1h/4h/1d). Contoh: 15m buy 07:00 + TP 08:15 → di 1h tampil buy candle 07:00, TP candle 08:00. Marker + box di-snap di `applyV20()`.
+- **Visual = TradingView "position box"**: custom primitive lightweight-charts `TradeBoxes` (canvas) gambar zona HIJAU (entry→TP) + MERAH (entry→SL) spanning entry→exit + garis entry/TP/SL + arrow LONG/SHORT + label return% per trade. Title = WR/ret/nL-nS.
+- **HANYA BTC.** ETH/SOL **TIDAK** dapat strategi/marker/box ("jangan dulu") — `loadChart` non-BTC: `candleS.setMarkers([]);boxes.set([])`. TIAP ticker+TF punya data sendiri (BTC pakai btc_v20 utk 15m + klines TF lain; ETH/SOL klines polos).
+- Chart live-sync: `tickChart` 3s update bar-terakhir via `.update()` (no redraw), **zoom kepertahanin** (save/restore `getVisibleRange`), `chartReady` guard anti-race, `setView` deferred 60ms (fix container-timing). `refreshV20` 60s re-apply marker/box.
+- Nambah strategi ticker lain nanti: bikin `{ticker}15m.py` → `{ticker}_v20.json` + endpoint, mirror pola BTC. JANGAN apply v20 BTC ke ticker lain.

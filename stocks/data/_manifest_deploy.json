@@ -1,0 +1,198 @@
+{
+ "BBTN.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BNGA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MEGA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "PNBN.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BJBR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BJTM.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MAPA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ERAA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "RALS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "LPPF.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "SCMA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MNCN.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "TBIG.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "WTON.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "PTPP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ADHI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "SMRA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "SSMS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "LSIP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "AALI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "DSNG.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "TINS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "NCKL.JK": {
+  "rows": 758,
+  "start": "2023-04-12",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ESSA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "PGEO.JK": {
+  "rows": 788,
+  "start": "2023-02-24",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ELSA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "KKGI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "HRUM.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ }
+}

@@ -18,7 +18,8 @@ import os, json, argparse
 import numpy as np, pandas as pd
 from eng import DEF
 from bot_v20_funding import (build_v20_context, step_v20, new_sleeve, fetch_klines,
-                             alert, load_config, sync_live, BAR_MS)
+                             alert, load_config, sync_live, BAR_MS, check_breaker, set_config,
+                             log_run, log_err)
 
 HERE    = "/home/dnayaka/Documents/dynamic_rsi/btc-terminal"
 CAPITAL = float(os.environ.get("BOT_CAPITAL", 1000.0))
@@ -54,8 +55,8 @@ def show_status(st=None):
 def do_once():
     st=load_state()
     df=fetch_klines(1000)   # 1000 bar: EMA200 konvergen penuh (div vs full-history ~0.0003%) + backfill lebih dalam
-    if df is None: print("fetch gagal, skip bar ini."); return
-    if len(df) < DEF['warmup']+10: print("data kurang"); return
+    if df is None: print("fetch gagal, skip bar ini."); log_err("fetch_klines gagal — skip bar"); return
+    if len(df) < DEF['warmup']+10: print("data kurang"); log_err("data kurang utk warmup"); return
     ot=df["open_time"].to_numpy(); n=len(df)
     last_ot=int(ot[-1]); prev_done=int(st.get("last_open_time",0))
     if last_ot==prev_done:
@@ -73,10 +74,22 @@ def do_once():
     for i in range(start, n):
         ev+=step_v20(st['v20'], i, ctx, ai=int(ot[i])//BAR_MS)
     print(f"== bar {df['dt'].iloc[-1]} close {price:.1f} | proses {n-start} bar (start idx {start}) ==")
-    # EKSEKUSI v20: rekonsiliasi ke posisi yg diinginkan (truth = posisi exchange)
-    cfg=load_config()
-    if cfg.get('sleeves',{}).get('v20',True):
-        sl=st['v20']
+    sl0=st['v20']; log_run(f"bar {df['dt'].iloc[-1]} close {price:.1f} | pos {({0:'FLAT',1:'LONG',-1:'SHORT'}[sl0['pos']])} eq x{sl0['equity']:.3f} | proses {n-start} bar")
+    cfg=load_config(); sl=st['v20']
+    # CIRCUIT-BREAKER: cek SEBELUM eksekusi. Kalau trip -> flat posisi (live masih on) lalu matikan live.
+    br=check_breaker(st, cfg)
+    if br['tripped']:
+        hflat=sync_live("v20-HALT", 0, price)                # tutup posisi mumpung live masih on
+        st['breaker']['halted']=True; st['breaker']['reason']=br['reason']
+        set_config(live=False, halted=True, halt_reason=br['reason'])
+        hmsg=f"🛑 CIRCUIT BREAKER: {br['reason']} — LIVE OFF, posisi diflat. Resume: bot_v22.py --resume"
+        ev.append(hmsg)
+        if hflat: ev.append("   flatten: "+hflat)             # hasil/error penutupan posisi
+        try:
+            from notify_wa import send_whatsapp; send_whatsapp("🛑 "+hmsg)
+        except Exception: pass
+    elif cfg.get('sleeves',{}).get('v20',True):
+        # EKSEKUSI v20: rekonsiliasi ke posisi yg diinginkan (truth = posisi exchange)
         desired = sl['pos'] if sl['pos']!=0 else sl['pending']   # collapse pending -> entry same-run (fix timing)
         msg=sync_live("v20", desired, price)
         if msg: ev.append(msg)
@@ -97,9 +110,20 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--once",action="store_true"); ap.add_argument("--status",action="store_true")
     ap.add_argument("--selftest",action="store_true"); ap.add_argument("--reset",action="store_true")
+    ap.add_argument("--resume",action="store_true",help="clear circuit-breaker halt (live tetap OFF, nyalakan manual)")
     a=ap.parse_args()
     if a.reset: save_state(dict(v20=new_sleeve(),last_open_time=0)); print("state v22 direset.")
+    elif a.resume:
+        st=load_state(); st.setdefault('breaker',{})['halted']=False; st['breaker']['reason']=""
+        st['v20']['loss_streak']=0; save_state(st); set_config(halted=False)
+        print("breaker di-reset. LIVE tetap OFF — nyalakan manual via admin kalau yakin.")
     elif a.selftest: selftest()
     elif a.status: show_status()
-    elif a.once: do_once()
+    elif a.once:
+        from bot_v20_funding import acquire_lock, release_lock
+        lk=acquire_lock()
+        if lk is None: print("⏭️ run lain masih jalan -> skip (cegah double-order)")
+        else:
+            try: do_once()
+            finally: release_lock(lk)
     else: ap.print_help()

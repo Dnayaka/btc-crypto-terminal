@@ -1,0 +1,577 @@
+{
+ "DCII.JK": {
+  "bars": 1317,
+  "last": 182000.0,
+  "ara": 30
+ },
+ "PGUN.JK": {
+  "bars": 1436,
+  "last": 7550.0,
+  "ara": 27
+ },
+ "BBHI.JK": {
+  "bars": 1561,
+  "last": 930.0,
+  "ara": 18
+ },
+ "EDGE.JK": {
+  "bars": 1297,
+  "last": 4790.0,
+  "ara": 17
+ },
+ "BNBA.JK": {
+  "bars": 1561,
+  "last": 695.0,
+  "ara": 15
+ },
+ "MORA.JK": {
+  "bars": 930,
+  "last": 7575.0,
+  "ara": 15
+ },
+ "NZIA.JK": {
+  "bars": 1561,
+  "last": 143.0,
+  "ara": 14
+ },
+ "ATAP.JK": {
+  "bars": 1331,
+  "last": 418.0,
+  "ara": 13
+ },
+ "BBYB.JK": {
+  "bars": 1561,
+  "last": 212.0,
+  "ara": 13
+ },
+ "IFSH.JK": {
+  "bars": 1561,
+  "last": 1155.0,
+  "ara": 12
+ },
+ "KIOS.JK": {
+  "bars": 1561,
+  "last": 84.0,
+  "ara": 12
+ },
+ "POLL.JK": {
+  "bars": 1564,
+  "last": 112.0,
+  "ara": 12
+ },
+ "COCO.JK": {
+  "bars": 1561,
+  "last": 170.0,
+  "ara": 11
+ },
+ "BBSI.JK": {
+  "bars": 1396,
+  "last": 4750.0,
+  "ara": 10
+ },
+ "LUCK.JK": {
+  "bars": 1561,
+  "last": 101.0,
+  "ara": 10
+ },
+ "RISE.JK": {
+  "bars": 1561,
+  "last": 970.0,
+  "ara": 10
+ },
+ "AMAR.JK": {
+  "bars": 1556,
+  "last": 200.0,
+  "ara": 9
+ },
+ "DNAR.JK": {
+  "bars": 1561,
+  "last": 111.0,
+  "ara": 9
+ },
+ "GEMS.JK": {
+  "bars": 1561,
+  "last": 5875.0,
+  "ara": 7
+ },
+ "GTRA.JK": {
+  "bars": 766,
+  "last": 190.0,
+  "ara": 7
+ },
+ "HDIT.JK": {
+  "bars": 1561,
+  "last": 50.0,
+  "ara": 7
+ },
+ "KEJU.JK": {
+  "bars": 1561,
+  "last": 540.0,
+  "ara": 7
+ },
+ "WINE.JK": {
+  "bars": 820,
+  "last": 158.0,
+  "ara": 7
+ },
+ "NETV.JK": {
+  "bars": 1055,
+  "last": 50.0,
+  "ara": 6
+ },
+ "NFCX.JK": {
+  "bars": 1561,
+  "last": 1670.0,
+  "ara": 6
+ },
+ "BANK.JK": {
+  "bars": 1299,
+  "last": 270.0,
+  "ara": 5
+ },
+ "DOOH.JK": {
+  "bars": 746,
+  "last": 111.0,
+  "ara": 5
+ },
+ "GULA.JK": {
+  "bars": 933,
+  "last": 630.0,
+  "ara": 5
+ },
+ "IRSX.JK": {
+  "bars": 801,
+  "last": 242.0,
+  "ara": 5
+ },
+ "ITMA.JK": {
+  "bars": 1561,
+  "last": 1485.0,
+  "ara": 5
+ },
+ "NICL.JK": {
+  "bars": 1193,
+  "last": 515.0,
+  "ara": 5
+ },
+ "WIRG.JK": {
+  "bars": 1010,
+  "last": 53.0,
+  "ara": 5
+ },
+ "ARKO.JK": {
+  "bars": 951,
+  "last": 5200.0,
+  "ara": 4
+ },
+ "CAMP.JK": {
+  "bars": 1561,
+  "last": 171.0,
+  "ara": 4
+ },
+ "CBDK.JK": {
+  "bars": 343,
+  "last": 3360.0,
+  "ara": 4
+ },
+ "MBSS.JK": {
+  "bars": 1561,
+  "last": 2570.0,
+  "ara": 4
+ },
+ "RAJA.JK": {
+  "bars": 1561,
+  "last": 3780.0,
+  "ara": 4
+ },
+ "RDTX.JK": {
+  "bars": 1562,
+  "last": 14375.0,
+  "ara": 4
+ },
+ "BEER.JK": {
+  "bars": 822,
+  "last": 76.0,
+  "ara": 3
+ },
+ "BGTG.JK": {
+  "bars": 1561,
+  "last": 109.0,
+  "ara": 3
+ },
+ "BIPI.JK": {
+  "bars": 1561,
+  "last": 126.0,
+  "ara": 3
+ },
+ "BMHS.JK": {
+  "bars": 1196,
+  "last": 182.0,
+  "ara": 3
+ },
+ "CUAN.JK": {
+  "bars": 780,
+  "last": 565.0,
+  "ara": 3
+ },
+ "FUTR.JK": {
+  "bars": 787,
+  "last": 179.0,
+  "ara": 3
+ },
+ "KOCI.JK": {
+  "bars": 646,
+  "last": 100.0,
+  "ara": 3
+ },
+ "NASA.JK": {
+  "bars": 1561,
+  "last": 31.0,
+  "ara": 3
+ },
+ "NOBU.JK": {
+  "bars": 1561,
+  "last": 434.0,
+  "ara": 3
+ },
+ "PSAB.JK": {
+  "bars": 1561,
+  "last": 408.0,
+  "ara": 3
+ },
+ "SMIL.JK": {
+  "bars": 742,
+  "last": 280.0,
+  "ara": 3
+ },
+ "SMMT.JK": {
+  "bars": 1561,
+  "last": 1800.0,
+  "ara": 3
+ },
+ "SOLA.JK": {
+  "bars": 509,
+  "last": 101.0,
+  "ara": 3
+ },
+ "TGUK.JK": {
+  "bars": 710,
+  "last": 137.0,
+  "ara": 3
+ },
+ "VISI.JK": {
+  "bars": 550,
+  "last": 875.0,
+  "ara": 3
+ },
+ "VTNY.JK": {
+  "bars": 838,
+  "last": 58.0,
+  "ara": 3
+ },
+ "BABP.JK": {
+  "bars": 1561,
+  "last": 50.0,
+  "ara": 2
+ },
+ "BRMS.JK": {
+  "bars": 1561,
+  "last": 498.0,
+  "ara": 2
+ },
+ "BVIC.JK": {
+  "bars": 1561,
+  "last": 84.0,
+  "ara": 2
+ },
+ "CARE.JK": {
+  "bars": 1510,
+  "last": 414.0,
+  "ara": 2
+ },
+ "CITA.JK": {
+  "bars": 1561,
+  "last": 3020.0,
+  "ara": 2
+ },
+ "ENRG.JK": {
+  "bars": 1561,
+  "last": 1040.0,
+  "ara": 2
+ },
+ "FORE.JK": {
+  "bars": 288,
+  "last": 625.0,
+  "ara": 2
+ },
+ "HILL.JK": {
+  "bars": 785,
+  "last": 16.0,
+  "ara": 2
+ },
+ "HOMI.JK": {
+  "bars": 1393,
+  "last": 198.0,
+  "ara": 2
+ },
+ "HRTA.JK": {
+  "bars": 1561,
+  "last": 1785.0,
+  "ara": 2
+ },
+ "MTDL.JK": {
+  "bars": 1561,
+  "last": 498.0,
+  "ara": 2
+ },
+ "NICE.JK": {
+  "bars": 582,
+  "last": 246.0,
+  "ara": 2
+ },
+ "PRDA.JK": {
+  "bars": 1561,
+  "last": 2500.0,
+  "ara": 2
+ },
+ "SGER.JK": {
+  "bars": 1413,
+  "last": 372.0,
+  "ara": 2
+ },
+ "URBN.JK": {
+  "bars": 1561,
+  "last": 204.0,
+  "ara": 2
+ },
+ "AGRO.JK": {
+  "bars": 1561,
+  "last": 146.0,
+  "ara": 1
+ },
+ "ASLC.JK": {
+  "bars": 1056,
+  "last": 59.0,
+  "ara": 1
+ },
+ "AXIO.JK": {
+  "bars": 943,
+  "last": 106.0,
+  "ara": 1
+ },
+ "DKFT.JK": {
+  "bars": 1561,
+  "last": 645.0,
+  "ara": 1
+ },
+ "ENVY.JK": {
+  "bars": 1564,
+  "last": 50.0,
+  "ara": 1
+ },
+ "FOOD.JK": {
+  "bars": 1561,
+  "last": 180.0,
+  "ara": 1
+ },
+ "HALO.JK": {
+  "bars": 800,
+  "last": 59.0,
+  "ara": 1
+ },
+ "ISEA.JK": {
+  "bars": 472,
+  "last": 64.0,
+  "ara": 1
+ },
+ "KIJA.JK": {
+  "bars": 1561,
+  "last": 116.0,
+  "ara": 1
+ },
+ "MCOL.JK": {
+  "bars": 1154,
+  "last": 3780.0,
+  "ara": 1
+ },
+ "MEDS.JK": {
+  "bars": 928,
+  "last": 69.0,
+  "ara": 1
+ },
+ "OASA.JK": {
+  "bars": 1561,
+  "last": 250.0,
+  "ara": 1
+ },
+ "PEVE.JK": {
+  "bars": 811,
+  "last": 316.0,
+  "ara": 1
+ },
+ "RMKE.JK": {
+  "bars": 1090,
+  "last": 2240.0,
+  "ara": 1
+ },
+ "SAME.JK": {
+  "bars": 1561,
+  "last": 400.0,
+  "ara": 1
+ },
+ "UVCR.JK": {
+  "bars": 1182,
+  "last": 158.0,
+  "ara": 1
+ },
+ "ASRI.JK": {
+  "bars": 1561,
+  "last": 109.0,
+  "ara": 0
+ },
+ "AYAM.JK": {
+  "bars": 607,
+  "last": 346.0,
+  "ara": 0
+ },
+ "BEKS.JK": {
+  "bars": 1561,
+  "last": 20.0,
+  "ara": 0
+ },
+ "BELI.JK": {
+  "bars": 865,
+  "last": 270.0,
+  "ara": 0
+ },
+ "BLES.JK": {
+  "bars": 472,
+  "last": 141.0,
+  "ara": 0
+ },
+ "CASH.JK": {
+  "bars": 1477,
+  "last": 155.0,
+  "ara": 0
+ },
+ "CLEO.JK": {
+  "bars": 1561,
+  "last": 374.0,
+  "ara": 0
+ },
+ "CMRY.JK": {
+  "bars": 1091,
+  "last": 4460.0,
+  "ara": 0
+ },
+ "CRSN.JK": {
+  "bars": 707,
+  "last": 99.0,
+  "ara": 0
+ },
+ "DMAS.JK": {
+  "bars": 1561,
+  "last": 136.0,
+  "ara": 0
+ },
+ "DMMX.JK": {
+  "bars": 1561,
+  "last": 170.0,
+  "ara": 0
+ },
+ "GOOD.JK": {
+  "bars": 1561,
+  "last": 314.0,
+  "ara": 0
+ },
+ "HEAL.JK": {
+  "bars": 1561,
+  "last": 855.0,
+  "ara": 0
+ },
+ "LMAX.JK": {
+  "bars": 686,
+  "last": 74.0,
+  "ara": 0
+ },
+ "MAXI.JK": {
+  "bars": 724,
+  "last": 50.0,
+  "ara": 0
+ },
+ "MENN.JK": {
+  "bars": 757,
+  "last": 53.0,
+  "ara": 0
+ },
+ "MTLA.JK": {
+  "bars": 1561,
+  "last": 550.0,
+  "ara": 0
+ },
+ "MTMH.JK": {
+  "bars": 999,
+  "last": 920.0,
+  "ara": 0
+ },
+ "MUTU.JK": {
+  "bars": 686,
+  "last": 111.0,
+  "ara": 0
+ },
+ "NAYZ.JK": {
+  "bars": 802,
+  "last": 61.0,
+  "ara": 0
+ },
+ "OMED.JK": {
+  "bars": 865,
+  "last": 206.0,
+  "ara": 0
+ },
+ "PACK.JK": {
+  "bars": 800,
+  "last": 234.0,
+  "ara": 0
+ },
+ "PRAY.JK": {
+  "bars": 865,
+  "last": 695.0,
+  "ara": 0
+ },
+ "PSSI.JK": {
+  "bars": 1561,
+  "last": 292.0,
+  "ara": 0
+ },
+ "PTMP.JK": {
+  "bars": 782,
+  "last": 54.0,
+  "ara": 0
+ },
+ "RGAS.JK": {
+  "bars": 623,
+  "last": 212.0,
+  "ara": 0
+ },
+ "SILO.JK": {
+  "bars": 1561,
+  "last": 2110.0,
+  "ara": 0
+ },
+ "WGSH.JK": {
+  "bars": 1091,
+  "last": 115.0,
+  "ara": 0
+ },
+ "WIDI.JK": {
+  "bars": 707,
+  "last": 25.0,
+  "ara": 0
+ },
+ "ZINC.JK": {
+  "bars": 1564,
+  "last": 30.0,
+  "ara": 0
+ }
+}

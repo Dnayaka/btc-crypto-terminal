@@ -1,0 +1,30 @@
+{
+ "date": "2026-06-26",
+ "price": 5896.1,
+ "change_pct": -1.72,
+ "regime": "STRONG DOWNTREND",
+ "bias": "BEARISH",
+ "score": -48,
+ "sma20": 5976.8,
+ "sma50": 6626.0,
+ "sma200": 7796.0,
+ "dist_sma200_pct": -24.37,
+ "rsi": 40.2,
+ "macd_hist": 40.2,
+ "stoch_k": 54.6,
+ "atr_pct": 3.58,
+ "bb_pos_pct": 41.0,
+ "hi52": 9174.5,
+ "lo52": 5317.9,
+ "dist_hi52_pct": -35.73,
+ "support": 5317.9,
+ "resistance": 7773.6,
+ "vol_vs_ma": 0.62,
+ "golden_cross": false,
+ "death_cross": false,
+ "reasons": [
+  "di BAWAH SMA200 (-24.4%) = struktur bearish",
+  "SMA50<SMA200 (tren menengah turun)",
+  "RSI 40 = momentum lemah"
+ ]
+}

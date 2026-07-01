@@ -1,0 +1,351 @@
+{
+ "^JKSE": {
+  "rows": 1557,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BBCA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BBRI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "BMRI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "BBNI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BRIS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BTPS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "ARTO.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "TLKM.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "EXCL.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ISAT.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "TOWR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "MTEL.JK": {
+  "rows": 1101,
+  "start": "2021-11-22",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "UNVR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ICBP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "INDF.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MYOR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "KLBF.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "SIDO.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "CPIN.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "AMRT.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MAPI.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ACES.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "HMSP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "GGRM.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ASII.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "UNTR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ANTM.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ADRO.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "PTBA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "ITMG.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "INCO.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MDKA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "PGAS.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "AKRA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "INKP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "TPIA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "MEDC.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "AMMN.JK": {
+  "rows": 708,
+  "start": "2023-07-07",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BRPT.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "BSDE.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "CTRA.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "PWON.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "SMGR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "INTP.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "allorigins",
+  "status": "ok"
+ },
+ "JSMR.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "GOTO.JK": {
+  "rows": 1005,
+  "start": "2022-04-11",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "BUKA.JK": {
+  "rows": 1174,
+  "start": "2021-08-06",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "EMTK.JK": {
+  "rows": 1561,
+  "start": "2020-01-02",
+  "end": "2026-06-26",
+  "via": "cors.sh",
+  "status": "ok"
+ },
+ "_meta": {
+  "ok": 49,
+  "total": 49,
+  "secs": 831,
+  "ts": 1782633362
+ }
+}

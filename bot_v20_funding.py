@@ -32,6 +32,38 @@ DRY_RUN   = True                                           # True = cuma sinyal,
 WEBHOOK   = os.environ.get("BOT_WEBHOOK", "")              # opsional: POST sinyal ke URL
 STATE_F   = os.path.join(HERE, "bot_state.json")
 VERIFY    = os.environ.get("FETCH_VERIFY","0")=="1"
+LOCK_F    = os.path.join(HERE, "bot.lock")
+import fcntl
+def acquire_lock():
+    """Lock antar-proses (flock non-blocking). Return handle kalau dapat, None kalau run lain jalan.
+    CEGAH DOUBLE-ORDER saat cron overlap (run > slot 15m -> 2 proses baca posisi flat -> 2x open)."""
+    f=open(LOCK_F,"w")
+    try: fcntl.flock(f, fcntl.LOCK_EX|fcntl.LOCK_NB); return f
+    except (BlockingIOError,OSError): f.close(); return None
+def release_lock(f):
+    if f:
+        try: fcntl.flock(f, fcntl.LOCK_UN); f.close()
+        except Exception: pass
+
+# ===================== LOG TERPISAH (run vs error) =====================
+import logging as _lg
+_LOGDIR=os.path.join(HERE,"logs")
+try: os.makedirs(_LOGDIR, exist_ok=True)
+except Exception: pass
+def _mklog():
+    lg=_lg.getLogger("bot_v20"); lg.setLevel(_lg.INFO); lg.handlers=[]; lg.propagate=False
+    fmt=_lg.Formatter("%(asctime)s %(levelname)-5s %(message)s","%Y-%m-%d %H:%M:%S")
+    rh=_lg.FileHandler(os.path.join(_LOGDIR,"bot_run.log")); rh.setLevel(_lg.INFO)
+    rh.addFilter(lambda r: r.levelno < _lg.ERROR); rh.setFormatter(fmt)   # run log: INFO/WARN aja (error dipisah)
+    eh=_lg.FileHandler(os.path.join(_LOGDIR,"bot_err.log")); eh.setLevel(_lg.ERROR); eh.setFormatter(fmt)
+    lg.addHandler(rh); lg.addHandler(eh); return lg
+LOG=_mklog()
+def log_run(msg):
+    try: LOG.info(msg)
+    except Exception: pass
+def log_err(msg):
+    try: LOG.error(msg)
+    except Exception: pass
 # v20 exit (sama dgn version20 pine / DEF)
 TP_BASE, TP_GENTLE, TP_WALL, SL_V20 = 2.0, 2.15, 0.40, 1.9
 COOLDOWN = 6
@@ -78,11 +110,35 @@ def build_v20_context(df):
     sl=np.full(len(c),SL_V20)
     return dict(o=o,h=h,l=l,c=c,A=A,long=long_sig,short=short_sig,tp=tp,sl=sl)
 
+# per-ticker vol-normalized params (riset multiticker 26-Jun, [[btc-multiticker-eth-sol]]):
+# BTC median ATR%15m 0.357 (baseline) / ETH 0.481 (1.35x) / SOL 0.699 (1.96x) -> param absolut BTC
+# tak ter-vol-normalize kalau dipakai apa adanya di ETH/SOL (DD 2x lipat). Fix: scale modest per-ticker.
+MULTI_PARAMS = {
+ "BTCUSDT": dict(tp_base=2.0, tp_gentle=2.15, tp_wall=0.40, sl=1.9, ceil=1.0,  floor=0.20),
+ "ETHUSDT": dict(tp_base=2.2, tp_gentle=2.35, tp_wall=0.54, sl=2.0, ceil=1.15, floor=0.27),
+ "SOLUSDT": dict(tp_base=2.4, tp_gentle=2.55, tp_wall=0.78, sl=2.2, ceil=1.90, floor=0.39),
+}
+def build_v20_context_multi(df, sym):
+    """Generalized build_v20_context, param per-symbol (MULTI_PARAMS). BTC path via
+    build_v20_context() TETAP dipakai (0 regresi); ini KHUSUS ETH/SOL (juga jalan utk BTC kalau perlu)."""
+    p=MULTI_PARAMS.get(sym, MULTI_PARAMS["BTCUSDT"])
+    o=df['open'].to_numpy(float); h=df['high'].to_numpy(float)
+    l=df['low'].to_numpy(float);  c=df['close'].to_numpy(float)
+    cf=dict(DEF); cf['max_atr']=p['ceil']; cf['atr_floor']=p['floor']; cf['sl']=p['sl']
+    R=rsi(c,cf['rsi_len']); E=ema(c,cf['ema_len']); A=atr(h,l,c,cf['atr_len'])
+    ap=A/c*100.0; rng=h-l; body=np.where(rng>0,np.abs(c-o)/np.where(rng>0,rng,1),0.0)
+    aL=pbsig(o,h,l,c,R,E,ap,body,'long'); aS=pbsig(o,h,l,c,R,E,ap,body,'short')
+    cf['add_long']=aL; cf['add_short']=aS
+    long_sig,short_sig,atr_pct,_=signals(df,cf,(o,h,l,c,R,E,A))
+    tp=np.full(len(c),p['tp_base']); tp[atr_pct>p['tp_wall']]=p['tp_gentle']
+    sl=np.full(len(c),p['sl'])
+    return dict(o=o,h=h,l=l,c=c,A=A,long=long_sig,short=short_sig,tp=tp,sl=sl)
+
 # ===================== STATE MACHINE v20 (faithful eng.py) =====================
 def new_sleeve(): return dict(pos=0,entry=0.0,tp=0.0,sl=0.0,hi=0.0,lo=0.0,trail=None,
                               gap=0.0,pending=0,entry_i=-1,last_entry_i=-10**9,
                               last_exit_dir=0,last_exit_i=-10**9,
-                              held=0,equity=1.0,ntr=0,nwin=0)
+                              held=0,equity=1.0,ntr=0,nwin=0,loss_streak=0)
 
 def step_v20(s, i, ctx, fill_next_open=True, ai=None):
     """Proses bar i utk sleeve v20. Mengembalikan list event (string). Mutasi s in-place.
@@ -113,6 +169,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
             elif h[i]>=s['tp']: px=max(o[i],s['tp']) if o[i]>s['tp'] else s['tp']; ex='TP'
             if ex:
                 r=(px/s['entry']-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
+                s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
                 ev.append(f"EXIT  v20 LONG  @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=1; s['last_exit_i']=aidx
             else:
@@ -126,6 +183,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
             elif l[i]<=s['tp']: px=min(o[i],s['tp']) if o[i]<s['tp'] else s['tp']; ex='TP'
             if ex:
                 r=(s['entry']/px-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
+                s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
                 ev.append(f"EXIT  v20 SHORT @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=-1; s['last_exit_i']=aidx
             else:
@@ -142,13 +200,34 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
     return ev
 
 # ===================== DATA LIVE =====================
+FAPI="https://fapi.binance.com"
+import urllib.parse as _uq
+_HDR={"User-Agent":"Mozilla/5.0","Accept":"application/json"}
+def bget(path, tries=3):
+    """GET Binance fapi via rantai proxy (Binance ISP-block di ID). direct sekali (Proton/VPN on) ->
+    3 proxy publik diulang `tries` kali dgn retry. Return JSON atau raise. Fix flap 'time gagal' single-proxy."""
+    full=FAPI+path; enc=_uq.quote(full,safe="")
+    chain=[(full,4)] + [                                     # direct cepat-fail (Proton) sekali
+        ("https://proxy.cors.sh/"+full,15),                  # proxy1 cors.sh
+        ("https://corsproxy.io/?url="+enc,15),               # proxy2 corsproxy.io
+        ("https://api.allorigins.win/raw?url="+enc,20),      # proxy3 allorigins
+    ]*max(1,tries)                                           # proxy diulang -> tahan flap
+    last=""
+    for url,to in chain:
+        try:
+            r=SESS.get(url, timeout=to, verify=VERIFY, headers=_HDR)
+            if r.status_code>=400: last=f"http{r.status_code}@{url[:24]}"; continue
+            j=r.json()
+            if j not in (None,{},[]): return j
+            last="empty@"+url[:24]
+        except Exception as e: last=f"{type(e).__name__}@{url[:24]}"
+    raise RuntimeError(f"binance gagal semua proxy ({last})")
+
 def fetch_klines(limit=1000):
     """Ambil klines 15m TERTUTUP (buang bar berjalan). Return None kalau gagal (jangan crash)."""
     try:
-        r=SESS.get("https://fapi.binance.com/fapi/v1/klines",
-                   params={"symbol":SYMBOL,"interval":INTERVAL,"limit":limit},timeout=25,verify=VERIFY)
-        r.raise_for_status(); b=r.json()
-        now=SESS.get("https://fapi.binance.com/fapi/v1/time",timeout=15,verify=VERIFY).json()["serverTime"]
+        b=bget(f"/fapi/v1/klines?symbol={SYMBOL}&interval={INTERVAL}&limit={limit}")
+        now=int(time.time()*1000)   # jam lokal cukup buat filter bar-tertutup; hemat 1 call + hilangkan flap serverTime
     except Exception as e:
         print("  fetch_klines gagal:", str(e)[:120]); return None
     if not b or not isinstance(b,list): return None
@@ -175,7 +254,9 @@ def save_state(st):
     os.replace(tmp, STATE_F)
 
 def alert(events):
-    for e in events: print("  >>", e)
+    for e in events:
+        print("  >>", e)
+        (log_err if any(t in e for t in ("GAGAL","❌","MISMATCH","BREAKER","gagal","error")) else log_run)(e)
     if events:
         try:
             from notify_wa import send_whatsapp
@@ -191,36 +272,94 @@ def load_config():
     """Baca config live-adjustable (size/leverage/live) dari bot_config.json (diatur via admin)."""
     try:
         with open(CONFIG_F) as f: return _json.load(f)
-    except Exception: return {"live":False,"size_usd":120,"leverage":1,"symbol":"BTC/USDT:USDT","sleeves":{"v20":True}}
+    except Exception: return {"live":False,"net":"testnet","size_usd":120,"leverage":1,"symbol":"BTC/USDT:USDT","sleeves":{"v20":True}}
+
+def set_config(**kw):
+    """Update field bot_config.json (atomic). Dipakai circuit-breaker utk matikan live."""
+    try:
+        with open(CONFIG_F) as f: c=_json.load(f)
+    except Exception: c={}
+    c.update(kw)
+    tmp=CONFIG_F+".tmp"
+    with open(tmp,"w") as f: _json.dump(c,f,indent=2)
+    os.replace(tmp, CONFIG_F); return c
+
+def check_breaker(st, cfg):
+    """CIRCUIT-BREAKER: halt kalau drawdown dari puncak >= max_dd_pct ATAU loss beruntun >= max_loss_streak.
+    Cuma TRIP saat live=true (lindungi uang asli). Track peak di st['breaker']. Return {tripped,reason,dd,streak}."""
+    sl=st['v20']
+    b=st.setdefault('breaker', {"peak":sl['equity'],"halted":False,"reason":""})
+    b['peak']=max(b.get('peak',sl['equity']), sl['equity'])
+    dd=(b['peak']-sl['equity'])/b['peak']*100 if b['peak']>0 else 0.0
+    streak=int(sl.get('loss_streak',0))
+    if cfg.get('live') and cfg.get('net') in ("mainnet","testnet"):   # M8: live -> DD dari equity NYATA (wallet+unrealized)
+        try:
+            _bal=_exchange(cfg.get('net')).fetch_balance()
+            eq=float(_bal.get('info',{}).get('totalMarginBalance') or (_bal.get('total',{}) or {}).get('USDT') or 0)
+            if eq>0:
+                rp=max(float(b.get('real_peak',eq)), eq); b['real_peak']=rp
+                dd=(rp-eq)/rp*100 if rp>0 else 0.0
+        except Exception: pass
+    bc=cfg.get('breaker',{}) or {}
+    if not bc.get('enabled',True): return {"tripped":False,"reason":"","dd":dd,"streak":streak}
+    max_dd=float(bc.get('max_dd_pct',15)); max_streak=int(bc.get('max_loss_streak',6))
+    reasons=[]
+    if dd>=max_dd: reasons.append(f"DD {dd:.1f}% ≥ {max_dd:.0f}%")
+    if streak>=max_streak: reasons.append(f"{streak}x loss beruntun ≥ {max_streak}")
+    tripped = bool(reasons) and not b.get('halted') and bool(cfg.get('live',False))
+    return {"tripped":tripped,"reason":" ; ".join(reasons),"dd":dd,"streak":streak}
 
 SECRETS_F = os.path.join(HERE, "bot_secrets.json")
-def load_keys():
-    """API key dari bot_secrets.json (diisi via dashboard) -> fallback env var."""
+def load_keys(net="mainnet"):
+    """API key per-net dari bot_secrets.json. Format baru:
+    {"mainnet":{"key","secret"}, "testnet":{"key","secret"}}. Backward-compat flat = mainnet.
+    Fallback env: BINANCE_KEY/SECRET (mainnet), BINANCE_TESTNET_KEY/SECRET (testnet)."""
     try:
-        s=_json.load(open(SECRETS_F)); return s.get("key",""), s.get("secret","")
-    except Exception:
-        return os.environ.get("BINANCE_KEY",""), os.environ.get("BINANCE_SECRET","")
+        s=_json.load(open(SECRETS_F))
+        if isinstance(s.get(net),dict): return s[net].get("key",""), s[net].get("secret","")
+        if "key" in s and net=="mainnet": return s.get("key",""), s.get("secret","")   # format lama = mainnet
+    except Exception: pass
+    if net=="testnet": return os.environ.get("BINANCE_TESTNET_KEY",""), os.environ.get("BINANCE_TESTNET_SECRET","")
+    return os.environ.get("BINANCE_KEY",""), os.environ.get("BINANCE_SECRET","")
 _EX = None
-def _exchange():
+def _exchange(net="mainnet"):
     global _EX
-    k,s=load_keys()
+    if net not in ("mainnet","testnet"):           # M6 fail-CLOSED: net aneh -> refuse (jangan diam2 ke live)
+        raise RuntimeError(f"net invalid '{net}' (harus mainnet/testnet) — refuse")
+    k,s=load_keys(net)
     import ccxt
-    _EX = ccxt.binanceusdm({"apiKey":k,"secret":s,"enableRateLimit":True,"options":{"defaultType":"future"}})
-    return _EX
+    ex = ccxt.binanceusdm({"apiKey":k,"secret":s,"enableRateLimit":True,"options":{"defaultType":"future"}})
+    ex.has['fetchCurrencies']=False                # skip sapi spot call (testnet ga punya sapi; bot futures-only)
+    if net=="mainnet":                             # mainnet ke-block SNI-DPI ISP -> lewat proxy lokal anti-DPI (TANPA VPN). testnet ga perlu.
+        px=os.environ.get("BINANCE_PROXY","socks5h://127.0.0.1:1080")
+        if px:
+            try: ex.socksProxy=px
+            except Exception: ex.proxies={"http":px,"https":px}
+    if net!="mainnet":   # ccxt sudah DROP set_sandbox_mode utk binance futures -> override URL ke testnet manual
+        api=ex.urls.get('api',{})
+        if isinstance(api,dict):
+            for kk,vv in list(api.items()):
+                if isinstance(vv,str): api[kk]=vv.replace('fapi.binance.com','testnet.binancefuture.com')
+    try: ex.set_position_mode(False)               # M5: PAKSA one-way (tolak hedge mis-reconcile)
+    except Exception: pass
+    _EX = ex; return ex
 
 def read_position(ex, sym):
-    """Posisi BTC bertanda (long +, short -, 0 flat) DARI EXCHANGE = sumber kebenaran.
-    Pakai info.positionAmt (Binance, signed) lalu fallback contracts/side (ccxt unified)."""
+    """Posisi BTC bertanda DARI EXCHANGE = sumber kebenaran. SUM semua leg (hedge-safe, M5).
+    RAISE kalau tak bisa dipastikan (jangan anggap 0=flat saat baca gagal -> cegah stack posisi M2)."""
     poss = ex.fetch_positions([sym])
+    if not poss: return 0.0   # ccxt: [] = FLAT (posisi entryPrice 0 di-filter). Gagal-fetch ASLI = THROW exception (bukan []) -> ketangkap try sync_live. (M2: jangan raise di sini -> dulu blokir SEMUA open)
+    tot=0.0; seen=False
     for p in poss:
         info = p.get('info',{}) or {}
         if 'positionAmt' in info:
-            try: return float(info['positionAmt'])
+            try: tot+=float(info['positionAmt']); seen=True; continue
             except Exception: pass
         amt = p.get('contracts'); side = p.get('side')
-        if amt and side:
-            return float(amt) if side=='long' else -float(amt)
-    return 0.0
+        if amt is not None and side:
+            tot += (float(amt) if side=='long' else -float(amt)); seen=True
+    if not seen: raise RuntimeError("posisi tak ter-parse — refuse (jangan order)")
+    return tot
 
 def _sgn(x, eps=1e-9): return 1 if x>eps else (-1 if x<-eps else 0)
 
@@ -232,19 +371,44 @@ def sync_live(label, desired_sign, price):
     (4) konfirmasi — re-baca posisi setelah order, alert kalau mismatch.
     live=false -> log saja (paper, NOL order). Error -> pesan utk WA, tak pernah raise."""
     cfg = load_config()
-    sym = cfg.get("symbol","BTC/USDT:USDT"); lev = int(cfg.get("leverage",1))
-    size_usd = float(cfg.get("size_usd",120))
+    sym = cfg.get("symbol","BTC/USDT:USDT")
+    lev = max(1, min(1, int(cfg.get("leverage",1))))       # M3: clamp <=1x DI EKSEKUSI (config = untrusted)
+    size_usd = min(float(cfg.get("size_usd",120)), float(cfg.get("max_size_usd",2000)))   # M3: cap notional
+    net = cfg.get("net","testnet")                         # switch 2: testnet (default aman) / mainnet
+    tag = "MAINNET" if net=="mainnet" else "TESTNET"
     tgt_qty = round(size_usd*lev/price, 3)                 # BTC presisi 0.001
     if not cfg.get("live", False):
-        print(f"  [PAPER] {label}: target sign {desired_sign} (~{tgt_qty} BTC)"); return None
-    k,sec = load_keys()
-    if not k or not sec: return f"⚠️ {label}: API key belum diisi"
+        # PAPER tapi fill PURA-PURA nabrak ORDERBOOK ASLI mainnet (no order, no uang). Cuma saat BERUBAH.
+        import paper_ob, json as _j, time as _t
+        led=os.path.join(HERE,"paper_ob_state.json")
+        try:
+            with open(led) as _lf: L=_j.load(_lf)
+        except Exception: L={"fills":[],"last_sign":0}
+        if desired_sign==L.get("last_sign",0):
+            print(f"  [PAPER-OB] {label}: hold sign {desired_sign}"); return None
+        msg=f"  [PAPER] {label}: target FLAT"
+        if desired_sign!=0:
+            try:
+                f=paper_ob.orderbook_fill("buy" if desired_sign>0 else "sell", tgt_qty)
+                L["fills"].append(dict(ts=int(_t.time()),label=label,sign=desired_sign,**f))
+                msg=(f"📝 PAPER-OB {('LONG' if desired_sign>0 else 'SHORT')} {tgt_qty} BTC @ ~{f['avg_px']:.1f} "
+                     f"slip {f['slip_pct']:+.3f}% ({f['levels_used']}lvl, {'fill OK' if f['filled'] else 'DEPTH HABIS'})")
+            except Exception as e: msg=f"  [PAPER] {label}: target {desired_sign} | OB-sim gagal {str(e)[:40]}"
+        L["last_sign"]=desired_sign; L["fills"]=L["fills"][-200:]
+        _tmp=led+".tmp"                                     # M9: tulis atomik (cegah korup -> last_sign reset -> dup fill)
+        with open(_tmp,"w") as _wf: _j.dump(L,_wf,indent=1)
+        os.replace(_tmp, led)
+        print("  "+msg); return msg
+    k,sec = load_keys(net)
+    if not k or not sec: return f"⚠️ {label}: API key {tag} belum diisi"
     if desired_sign!=0 and (tgt_qty*price < 100 or tgt_qty < 0.001):
         msg=f"⚠️ {label}: target ${tgt_qty*price:.0f} < min Binance $100 — skip"; print("  "+msg); return msg
     try:
-        ex=_exchange()
+        ex=_exchange(net)
         try: ex.set_leverage(lev, sym)
         except Exception: pass
+        _bk=int(time.time()//900)                          # M1 defense: clientOrderId deterministik per-bucket-15m
+        def _cid(a): return (f"{label}-{_bk}-{a}")[:36]    # 2 run konkuren -> cid SAMA -> Binance TOLAK order dobel (exchange-side dedup)
         actual = read_position(ex, sym)                    # signed BTC = TRUTH
         asign = _sgn(actual)
         tol = max(0.0005, 0.02*tgt_qty)                     # ~setengah-lot: posisi ter-kuantisasi 0.001 harus benar2 cocok
@@ -254,29 +418,29 @@ def sync_live(label, desired_sign, price):
         # 1) tutup/flip: kalau ada posisi arah-salah, close qty AKTUAL (reduceOnly)
         if asign!=0 and asign!=desired_sign:
             q=abs(round(actual,3))
-            ex.create_order(sym,"market","sell" if actual>0 else "buy", q, params={"reduceOnly":True})
+            ex.create_order(sym,"market","sell" if actual>0 else "buy", q, params={"reduceOnly":True,"newClientOrderId":_cid("close")})
             orders.append(f"close {actual:+.3f}"); actual=0.0; asign=0
         # 2) buka/sesuaikan menuju desired
         if desired_sign!=0:
             need=round(desired_sign*tgt_qty-actual, 3)     # delta bertanda
             if abs(need)>=0.001:
-                ex.create_order(sym,"market","buy" if need>0 else "sell", abs(need))
+                ex.create_order(sym,"market","buy" if need>0 else "sell", abs(need), params={"newClientOrderId":_cid("open")})
                 orders.append(f"open {need:+.3f}")
         elif asign!=0:                                      # desired flat tapi masih nyangkut
             q=abs(round(actual,3))
-            ex.create_order(sym,"market","sell" if actual>0 else "buy", q, params={"reduceOnly":True})
+            ex.create_order(sym,"market","sell" if actual>0 else "buy", q, params={"reduceOnly":True,"newClientOrderId":_cid("flat")})
             orders.append(f"flat {actual:+.3f}")
         # 3) konfirmasi: re-baca posisi
         conf=read_position(ex,sym); csign=_sgn(conf)
         ok=(csign==desired_sign) and (desired_sign==0 or abs(abs(conf)-tgt_qty)<=tol)
-        msg=f"{'✅' if ok else '⚠️'} LIVE {label} -> sign {desired_sign} ({' / '.join(orders) or 'noop'}); pos {conf:+.3f}"
+        msg=f"{'✅' if ok else '⚠️'} {tag} {label} -> sign {desired_sign} ({' / '.join(orders) or 'noop'}); pos {conf:+.3f}"
         if not ok: msg+=" — MISMATCH, cek manual!"
         try:
             from notify_wa import send_whatsapp; send_whatsapp("💰 "+msg)
         except Exception: pass
         print("  "+msg); return msg
     except Exception as e:
-        msg=f"❌ {label} sync GAGAL: {str(e)[:120]}"; print("  "+msg); return msg
+        msg=f"❌ {tag} {label} sync GAGAL: {str(e)[:120]}"; print("  "+msg); return msg
 
 # ===================== AKSI =====================
 def do_once():
@@ -349,5 +513,10 @@ if __name__=="__main__":
     if a.reset: save_state(dict(v20=new_sleeve(),last_open_time=0)); print("state direset.")
     elif a.selftest: selftest()
     elif a.status: show_status()
-    elif a.once: do_once()
+    elif a.once:
+        lk=acquire_lock()
+        if lk is None: print("⏭️ run lain masih jalan -> skip (cegah double-order)")
+        else:
+            try: do_once()
+            finally: release_lock(lk)
     else: ap.print_help()

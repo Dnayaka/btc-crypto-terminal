@@ -1,9 +1,19 @@
 # ---- SECRETS / AUTH (never commit) ----
 bot_secrets.json
+.terminal_pass
+users.json
+sessions.json
 wa-daemon/auth/
 wa-daemon/auth*
 *.session
 .env
+econ_bls.json
+adp_actual.json
+fed_live.json
+liq_real.json
+ob_liq.json
+ob_state.json
+paper_ob_state.json
 
 # ---- runtime-mutable state / logs ----
 bot_config.json
@@ -22,3 +32,19 @@ btc_funding.csv
 wa-daemon/node_modules/
 __pycache__/
 *.pyc
+
+# ---- AI (runtime) ----
+ai_read.json
+ai_gen.log
+
+# ---- generated chart/perf data (regenerable via gen_v20.py/btc15m.py, MB-size) ----
+btc_v20.json
+eth_v20.json
+sol_v20.json
+cal_cache.json
+fed_summary.json
+bot_config.example.json.bak
+*.pkl
+*.pid
+graphify-out/
+__pycache__/
