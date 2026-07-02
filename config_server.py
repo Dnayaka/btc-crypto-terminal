@@ -951,6 +951,15 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
 <div class=wrap style="max-width:640px">
  <header class=hdr><div class=brand><span class=bt style="font-size:15px">📓</span> DNAYAKA<span style="color:var(--dim);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-left:9px">Trading Journal</span><span class=cur></span></div>
   <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/">CRYPTO</a><a class=navlink href="/logout">LOGOUT</a></div></div></header>
+ <section class="panel rv d1" id=pnlcard style="margin-top:16px;overflow:hidden;position:relative;text-align:center;padding:26px 20px;background:radial-gradient(120% 140% at 50% -20%,rgba(255,140,26,.10),transparent 60%),var(--panel)">
+  <div class=label style="letter-spacing:.24em">Total PnL</div>
+  <div id=pnlBig class=bigprice style="font-size:clamp(34px,8vw,58px);margin:8px 0 4px">$0.00</div>
+  <div id=pnlRow style="display:flex;justify-content:center;gap:22px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--dim)">
+   <span>Bulan ini <b id=pnlMonth style="color:var(--ink)">$0</b></span>
+   <span>Win rate <b id=pnlWR style="color:var(--ink)">—</b></span>
+   <span>Trade tercatat <b id=pnlN style="color:var(--ink)">0</b></span>
+  </div>
+ </section>
  <section class="panel rv d2" style="margin-top:16px">
   <div class=panel-h><span class=t><span class=sq></span><span id=jformtitle>Entri Baru</span></span><span id=jcancelWrap style="display:none"><button onclick=cancelEdit() style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:4px;cursor:pointer;font-size:10px;padding:4px 9px">batal edit</button></span></div>
   <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
@@ -962,6 +971,7 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
    <input id=jentry type=number step=any placeholder="Entry $" title="Harga entry" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
    <input id=jsl type=number step=any placeholder="SL $ (opsional)" title="Stop loss (opsional)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
    <input id=jlev type=number step=any placeholder="Leverage x" title="Leverage" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jpnl type=number step=any placeholder="PnL $ (+/-)" title="Profit/Loss realisasi" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
   </div>
   <textarea id=jnote placeholder="Catatan trade — kenapa entry, apa yang dipelajari, dst." style="width:100%;height:90px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>
   <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
@@ -972,6 +982,17 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
   <img id=jprev style="display:none;max-width:100%;max-height:220px;border:1px solid var(--line);border-radius:6px;margin-top:8px">
   <button id=jsavebtn onclick=saveEntry() style="width:100%;margin-top:10px;padding:13px;font-family:var(--mono);font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:6px;cursor:pointer;font-size:12px">Simpan Entri</button>
   <div id=jmsg style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+ </section>
+ <section class="panel rv d3" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Kalender PnL</span>
+   <span style="display:flex;align-items:center;gap:10px">
+    <button onclick="calNav(-1)" style="background:none;border:1px solid var(--line);color:var(--ink);border-radius:4px;cursor:pointer;font-size:12px;padding:3px 9px">‹</button>
+    <span id=calLabel style="font-size:11px;color:var(--dim);min-width:96px;text-align:center;letter-spacing:.08em;text-transform:uppercase">—</span>
+    <button onclick="calNav(1)" style="background:none;border:1px solid var(--line);color:var(--ink);border-radius:4px;cursor:pointer;font-size:12px;padding:3px 9px">›</button>
+   </span>
+  </div>
+  <div id=calGrid style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
+  <div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:10px;color:var(--dim)"><span><span style="display:inline-block;width:8px;height:8px;background:var(--up);border-radius:2px;margin-right:4px"></span>profit</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--down);border-radius:2px;margin-right:4px"></span>loss</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--line);border-radius:2px;margin-right:4px"></span>nol/tak ada trade</span></div>
  </section>
  <section class="panel rv d3" style="margin-top:16px">
   <div class=panel-h><span class=t><span class=sq></span>Riwayat (kamu saja — privat)</span></div>
@@ -986,6 +1007,46 @@ function pad2(n){return String(n).padStart(2,'0')}
 function epochToLocalInput(ts){const d=new Date(ts*1000);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes())}
 function localInputToEpoch(v){const t=new Date(v).getTime();return isFinite(t)?Math.floor(t/1000):0}
 let pendingImg=null, editingId=null, removeImgFlag=false, lastEntries=[], compressing=false;
+const _now0=new Date(); let calYear=_now0.getFullYear(), calMonth=_now0.getMonth();
+const MONTH_NAMES=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function fmtMoney(n){const s=Math.abs(n)>=1000?Number(n.toFixed(0)).toLocaleString():n.toFixed(2);return (n>=0?'+':'-')+'$'+s}
+function renderPnlCard(){
+ const withPnl=lastEntries.filter(e=>e.pnl!=null);
+ const total=withPnl.reduce((a,e)=>a+e.pnl,0);
+ const now=new Date(); const thisMonth=withPnl.filter(e=>{const d=new Date(e.ts*1000);return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()}).reduce((a,e)=>a+e.pnl,0);
+ const wins=withPnl.filter(e=>e.pnl>0).length; const wr=withPnl.length?Math.round(wins/withPnl.length*100):null;
+ const col=total>0?'var(--up)':total<0?'var(--down)':'var(--ink)';
+ $('pnlBig').textContent=withPnl.length?fmtMoney(total):'$0.00'; $('pnlBig').style.color=col;
+ $('pnlBig').style.textShadow=total!==0?('0 0 44px '+(total>0?'rgba(39,208,122,.35)':'rgba(255,69,58,.35)')):'';
+ $('pnlMonth').textContent=withPnl.length?fmtMoney(thisMonth):'$0'; $('pnlMonth').style.color=thisMonth>0?'var(--up)':thisMonth<0?'var(--down)':'var(--ink)';
+ $('pnlWR').textContent=wr==null?'—':wr+'%'; $('pnlWR').style.color=wr==null?'var(--ink)':(wr>=50?'var(--up)':'var(--down)');
+ $('pnlN').textContent=lastEntries.length;
+}
+function calNav(d){calMonth+=d; if(calMonth<0){calMonth=11;calYear--} else if(calMonth>11){calMonth=0;calYear++} renderCalendar()}
+function renderCalendar(){
+ $('calLabel').textContent=MONTH_NAMES[calMonth]+' '+calYear;
+ const byDay={};
+ lastEntries.forEach(e=>{
+  const d=new Date(e.ts*1000);
+  if(d.getFullYear()!==calYear||d.getMonth()!==calMonth) return;
+  const key=d.getDate();
+  const b=byDay[key]||{pnl:0,n:0,has:false}; b.n++; b.has=true; if(e.pnl!=null)b.pnl+=e.pnl; byDay[key]=b;
+ });
+ const first=new Date(calYear,calMonth,1); const startDow=first.getDay(); const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+ const todayKey=(new Date()).toDateString();
+ let html=['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(d=>'<div style="text-align:center;font-size:9px;color:var(--dim);letter-spacing:.1em;padding-bottom:4px">'+d+'</div>').join('');
+ for(let i=0;i<startDow;i++) html+='<div></div>';
+ for(let day=1;day<=daysInMonth;day++){
+  const b=byDay[day]; const isToday=new Date(calYear,calMonth,day).toDateString()===todayKey;
+  let bg='var(--bg)', bd='var(--line)', txtcol='var(--dim)';
+  if(b&&b.has){ if(b.pnl>0){bg='rgba(39,208,122,.16)';bd='var(--up)'} else if(b.pnl<0){bg='rgba(255,69,58,.16)';bd='var(--down)'} else {bg='rgba(255,140,26,.10)';bd='var(--amber)'} txtcol='var(--ink)' }
+  html+='<div style="aspect-ratio:1;border:1px solid '+(isToday?'var(--amber)':bd)+';background:'+bg+';border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px">'
+   +'<span style="font-size:10px;color:'+txtcol+'">'+day+'</span>'
+   +(b&&b.has?('<span style="font-size:8.5px;font-weight:600;color:'+(b.pnl>0?'var(--up)':b.pnl<0?'var(--down)':'var(--amber)')+'">'+(b.pnl!==0?fmtMoney(b.pnl):b.n+'t')+'</span>'):'')
+   +'</div>';
+ }
+ $('calGrid').innerHTML=html;
+}
 $('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
 function compressImg(file, maxDim, quality){
  // resize+re-encode via canvas -> jauh lebih kecil (chart-screenshot 4-8MB PNG jadi ~150-400KB JPEG),
@@ -1019,7 +1080,7 @@ function onPick(ev){
 function removeImg(){pendingImg=null;removeImgFlag=true;$('jprev').style.display='none';$('jprev').src='';$('jrmimg').style.display='none';$('jfname').textContent='(gambar akan dihapus)'}
 function resetForm(){
  $('jnote').value='';$('jsym').value='';$('jfile').value='';$('jfname').textContent='';$('jprev').style.display='none';$('jprev').src='';
- $('jmodal').value='';$('jentry').value='';$('jsl').value='';$('jlev').value='';
+ $('jmodal').value='';$('jentry').value='';$('jsl').value='';$('jlev').value='';$('jpnl').value='';
  $('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
  pendingImg=null;editingId=null;removeImgFlag=false;
  $('jformtitle').textContent='Entri Baru';$('jcancelWrap').style.display='none';$('jsavebtn').textContent='Simpan Entri';$('jrmimg').style.display='none';
@@ -1029,7 +1090,7 @@ function editEntry(id){
  const e=lastEntries.find(x=>x.id===id); if(!e) return;
  editingId=id; pendingImg=null; removeImgFlag=false;
  $('jnote').value=e.note||'';$('jsym').value=e.sym||'';$('jdt').value=epochToLocalInput(e.ts);
- $('jmodal').value=e.modal??'';$('jentry').value=e.entry??'';$('jsl').value=e.sl??'';$('jlev').value=e.lev??'';
+ $('jmodal').value=e.modal??'';$('jentry').value=e.entry??'';$('jsl').value=e.sl??'';$('jlev').value=e.lev??'';$('jpnl').value=e.pnl??'';
  $('jfile').value='';
  if(e.img){$('jprev').src='/journal_img/'+e.img;$('jprev').style.display='block';$('jfname').textContent='(gambar tersimpan — pilih file baru utk ganti)';$('jrmimg').style.display='inline-block'}
  else{$('jprev').style.display='none';$('jfname').textContent='';$('jrmimg').style.display='none'}
@@ -1039,12 +1100,12 @@ function editEntry(id){
 function saveEntry(){
  if(compressing){$('jmsg').textContent='tunggu kompresi gambar selesai…';$('jmsg').style.color='var(--amber)';return}
  const note=$('jnote').value.trim(), sym=$('jsym').value.trim(), ts=localInputToEpoch($('jdt').value);
- const modal=$('jmodal').value, entry=$('jentry').value, sl=$('jsl').value, lev=$('jlev').value;
+ const modal=$('jmodal').value, entry=$('jentry').value, sl=$('jsl').value, lev=$('jlev').value, pnl=$('jpnl').value;
  if(!note && !pendingImg && !(editingId && !removeImgFlag)){$('jmsg').textContent='isi catatan atau tempel screenshot dulu';$('jmsg').style.color='var(--down)';return}
  $('jmsg').textContent='⟳ menyimpan…';$('jmsg').style.color='var(--amber)';
  const payload=editingId
-  ?{act:'edit',id:editingId,note,sym,ts,modal,entry,sl,lev,img_b64:pendingImg,remove_img:removeImgFlag}
-  :{act:'add',note,sym,ts,modal,entry,sl,lev,img_b64:pendingImg};
+  ?{act:'edit',id:editingId,note,sym,ts,modal,entry,sl,lev,pnl,img_b64:pendingImg,remove_img:removeImgFlag}
+  :{act:'add',note,sym,ts,modal,entry,sl,lev,pnl,img_b64:pendingImg};
  fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(r=>r.json()).then(d=>{
    $('jmsg').textContent=d.ok?'✓ tersimpan':(d.msg||'gagal');$('jmsg').style.color=d.ok?'var(--up)':'var(--down)';
@@ -1058,6 +1119,7 @@ function delEntry(id){
 function loadJournal(){
  fetch('/api/journal').then(r=>r.json()).then(d=>{
   lastEntries=d.entries||[];
+  renderPnlCard(); renderCalendar();
   const es=lastEntries.slice().sort((a,b)=>b.ts-a.ts);
   if(!es.length){$('jlist').innerHTML='<div style="font-size:12px;color:var(--dim)">belum ada entri</div>';return}
   $('jlist').innerHTML=es.map(e=>{
@@ -1065,6 +1127,7 @@ function loadJournal(){
    const img=e.img?('<img src="/journal_img/'+e.img+'" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'';
    const symtag=e.sym?('<span class=tag style="margin-right:8px">'+esc(e.sym)+'</span>'):'';
    const stat=[];
+   if(e.pnl!=null)stat.push('<span>PnL <b style="color:'+(e.pnl>=0?'var(--up)':'var(--down)')+'">'+(e.pnl>=0?'+':'')+'$'+Number(e.pnl).toLocaleString()+'</b></span>');
    if(e.modal!=null)stat.push('<span>Modal <b style="color:var(--ink)">$'+Number(e.modal).toLocaleString()+'</b></span>');
    if(e.entry!=null)stat.push('<span>Entry <b style="color:var(--ink)">$'+Number(e.entry).toLocaleString()+'</b></span>');
    if(e.sl!=null)stat.push('<span>SL <b style="color:var(--down)">$'+Number(e.sl).toLocaleString()+'</b></span>');
@@ -1207,7 +1270,7 @@ class H(BaseHTTPRequestHandler):
                     if not tgt: return self._s(404,"application/json",'{"ok":false,"msg":"entri tak ditemukan"}')
                     tgt["note"]=str(body.get("note") or "")[:2000]; tgt["sym"]=str(body.get("sym") or "")[:20]
                     tgt["ts"]=_mkts()
-                    tgt["modal"]=_num("modal"); tgt["entry"]=_num("entry"); tgt["sl"]=_num("sl"); tgt["lev"]=_num("lev")
+                    tgt["modal"]=_num("modal"); tgt["entry"]=_num("entry"); tgt["sl"]=_num("sl"); tgt["lev"]=_num("lev"); tgt["pnl"]=_num("pnl")
                     if body.get("remove_img"):
                         if tgt.get("img"):
                             try: os.remove(os.path.join(JIMG_DIR,tgt["img"]))
@@ -1232,7 +1295,7 @@ class H(BaseHTTPRequestHandler):
                     img_id,err=_saveimg(b64)
                     if err: return err
                 entry={"id":_secrets.token_hex(8),"ts":_mkts(),"note":note,"sym":sym,"img":img_id,
-                       "modal":_num("modal"),"entry":_num("entry"),"sl":_num("sl"),"lev":_num("lev")}
+                       "modal":_num("modal"),"entry":_num("entry"),"sl":_num("sl"),"lev":_num("lev"),"pnl":_num("pnl")}
                 mine.append(entry); d[jusr]=mine; _jsave(d)
             return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
         if not (local or (usr and is_admin(usr)) or self._auth_ok()): return self._need_auth()   # POST admin = localhost ATAU session-admin ATAU service basic-auth
