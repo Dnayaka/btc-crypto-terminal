@@ -69,6 +69,17 @@ _STATSLAST={}   # stale-on-error /api/stats per-sym (fix: dulu upstream-fail -> 
 _CACHE={}; _KEYLK={}; _CLK=threading.Lock()
 _TFOK={"1m","3m","5m","15m","30m","1h","2h","4h","6h","8h","12h","1d","3d","1w"}   # whitelist tf (cegah unbounded cache key DoS)
 _NEWSLAST={}; _NEWSLK=threading.Lock()   # last-good news per (sym,lang) -> stale-on-error
+_LIQMAX={}; _LIQMAX_LK=threading.Lock()   # EMA-smoothed max per sym utk normalisasi /api/liqmap -- FIX brightness flicker
+def _liqmax_smooth(sym, cur_max):
+    """Normalisasi liqmap dulu pakai max() DARI BATCH SAAT ITU SAJA -> level harga sama bisa
+    keliatan terang/gelap gonta-ganti antar-fetch cuma krn max-nya goyang, BUKAN krn datanya
+    beneran berubah (bin borderline juga bisa nyebrang ambang 0.04 -> 'muncul-ngilang'). Fix:
+    EMA-smooth max lintas-fetch (peredam noise 1-fetch, tetap ngikutin kalau rezim beneran geser)."""
+    with _LIQMAX_LK:
+        prev=_LIQMAX.get(sym, cur_max)
+        smoothed=prev*0.7+cur_max*0.3
+        _LIQMAX[sym]=smoothed
+        return smoothed
 _CALPATH="/home/dnayaka/Documents/dynamic_rsi/btc-terminal/cal_cache.json"   # ditulis cron cal_fetch.py; server CUMA baca (decouple dari traffic -> faireconomy ga ke-hammer)
 def _cal_read():
     """(events_list, fetched_ts) dari cal_cache.json; ([],0) kalau belum ada."""
@@ -1676,9 +1687,10 @@ class H(BaseHTTPRequestHandler):
                     bins=([{"price":round(b*binw,1),"side":"long","v":d["v"],"entry":round(d["entry"],1),"lev":d["lev"]} for b,d in longb.items()]
                         + [{"price":round(b*binw,1),"side":"short","v":d["v"],"entry":round(d["entry"],1),"lev":d["lev"]} for b,d in shortb.items()])
                     bins=[x for x in bins if (x["side"]=="long" and x["price"]<px) or (x["side"]=="short" and x["price"]>px)]   # cuma liq belum ke-trigger: long-liq di BAWAH harga, short-liq di ATAS
-                    mx=max((x["v"] for x in bins),default=1) or 1
+                    mx_raw=max((x["v"] for x in bins),default=1) or 1
+                    mx=_liqmax_smooth(sym, mx_raw)   # FIX flicker: EMA-smooth lintas-fetch, jangan cuma max batch-ini
                     for x in bins:
-                        x["v"]=round(x["v"]/mx,4)
+                        x["v"]=round(min(1.0, x["v"]/mx),4)   # cap 1.0 -- batch bisa sesaat lebih terang dari smoothed-max
                         x["str"]="kuat" if x["v"]>=0.6 else ("sedang" if x["v"]>=0.25 else "lemah")
                     bins=sorted([x for x in bins if x["v"]>=0.04],key=lambda x:-x["v"])[:120]
                     return json.dumps({"mid":px,"binw":round(binw,1),"bins":bins})
