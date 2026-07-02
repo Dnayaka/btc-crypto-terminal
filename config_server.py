@@ -390,6 +390,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13p
 .calt{color:var(--amber2);font-size:10.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .calmeta{font-size:11px;color:var(--dim);margin-top:2px}.calmeta b{color:var(--ink)}
 .calnote{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5}
+.caldet{display:none}.caldet.open{display:block}
 """
 FAVICON_SVG=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
  "<rect width='64' height='64' rx='14' fill='#0a0700'/>"
@@ -858,29 +859,34 @@ function loadCalendar(){Promise.all([fetch('/api/calendar').then(r=>r.json()),fe
  up.forEach(e=>{const d=new Date(e.t*1000),dt=e.t-now;
   const wib=d.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const row=document.createElement('div');row.className='calrow';
-  const hd=document.createElement('div');hd.className='calhd';
+  const hd=document.createElement('div');hd.className='calhd';hd.style.cursor='pointer';
   const ti=document.createElement('span');ti.style.color=col(e.tier);ti.textContent=ic(e.tier)+' '+e.title;
+  const right=document.createElement('span');right.style.cssText='display:flex;align-items:center;gap:7px;flex:none';
   const tm=document.createElement('span');tm.className='calt';tm.textContent=wib+' WIB';
-  hd.appendChild(ti);hd.appendChild(tm);
+  const chev=document.createElement('span');chev.textContent='▾';chev.style.cssText='font-size:9px;color:var(--dim);transition:transform .2s,color .2s';
+  right.appendChild(tm);right.appendChild(chev);
+  hd.appendChild(ti);hd.appendChild(right);
+  // detail (meta+hasil+penjelasan) -- SEMUA disembunyikan default di mobile & desktop, cuma judul+jadwal yg keliatan; tap row buat buka
+  const det=document.createElement('div');det.className='caldet';
   const meta=document.createElement('div');meta.className='calmeta';
   const ag=-dt;const cd=dt<0?('✓ rilis '+(ag<3600?Math.round(ag/60)+'m lalu':ag<86400?Math.floor(ag/3600)+'j lalu':Math.floor(ag/86400)+'h lalu')):('dlm '+(dt<3600?Math.round(dt/60)+'m':dt<86400?Math.floor(dt/3600)+'j '+Math.round(dt%3600/60)+'m':Math.floor(dt/86400)+'h'));
-  meta.append(cd+' · perkiraan: ');const fb=document.createElement('b');fb.textContent=e.forecast||'—';meta.appendChild(fb);meta.append(' · sebelumnya: '+(e.previous||'—'));
+  meta.append(cd+' · perkiraan: ');const fbb=document.createElement('b');fbb.textContent=e.forecast||'—';meta.appendChild(fbb);meta.append(' · sebelumnya: '+(e.previous||'—'));
+  det.appendChild(meta);
   const ex=calExplain(e.title);
   let adir=0;   // arah hasil vs perkiraan: 1=di atas, -1=di bawah, 0=belum/sesuai
   if(e.actual&&e.forecast){const pa=parseFloat(String(e.actual).replace(/[^0-9.\-]/g,'')),pf=parseFloat(String(e.forecast).replace(/[^0-9.\-]/g,''));if(!isNaN(pa)&&!isNaN(pf))adir=pa>pf?1:pa<pf?-1:0;}
   const wt=document.createElement('div');wt.className='calnote';wt.textContent='ℹ️ '+ex.what;
-  const up=document.createElement('div');up.className='calnote';up.innerHTML='📈 di atas perkiraan → '+ex.atas;if(adir===-1)up.style.textDecoration='line-through';
+  const upn=document.createElement('div');upn.className='calnote';upn.innerHTML='📈 di atas perkiraan → '+ex.atas;if(adir===-1)upn.style.textDecoration='line-through';
   const dn=document.createElement('div');dn.className='calnote';dn.innerHTML='📉 di bawah perkiraan → '+ex.bawah;if(adir===1)dn.style.textDecoration='line-through';
-  row.appendChild(hd);row.appendChild(meta);
   if(e.actual){const av=document.createElement('div');av.className='calnote';const cmp=adir===1?' <span style="color:var(--up)">↑ di atas perkiraan</span>':adir===-1?' <span style="color:var(--down)">↓ di bawah perkiraan</span>':(e.forecast?' <span style="color:var(--dim)">= sesuai</span>':'');
-   av.innerHTML='✅ <b style="color:var(--amber2)">HASIL: '+e.actual+'</b>'+(e.forecast?' <span style="color:var(--dim)">vs perkiraan '+e.forecast+'</span>':'')+cmp;row.appendChild(av);}
+   av.innerHTML='✅ <b style="color:var(--amber2)">HASIL: '+e.actual+'</b>'+(e.forecast?' <span style="color:var(--dim)">vs perkiraan '+e.forecast+'</span>':'')+cmp;det.appendChild(av);}
   else if(dt<0){   // udah rilis tapi kita blm punya angkanya (BLS blm update / sumbernya di luar cakupan BLS) -> kasih link eksternal BENERAN, bukan cuma sebut nama situsnya
    const av=document.createElement('div');av.className='calnote';
    av.append((calCoverable(e.title)?'⏳ menunggu hasil (update tiap jam)':'✓ sudah rilis — hasil belum otomatis terbaca')+' · cek: ');
    const mklink=(href,txt)=>{const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='color:var(--amber2);display:inline;text-decoration:underline';a.textContent=txt;return a;};
    av.appendChild(mklink('https://www.forexfactory.com/calendar','ForexFactory'));av.append(' · ');av.appendChild(mklink('https://www.investing.com/economic-calendar/','Investing.com'));
-   row.appendChild(av);}
-  row.appendChild(wt);row.appendChild(up);row.appendChild(dn);
+   det.appendChild(av);}
+  det.appendChild(wt);det.appendChild(upn);det.appendChild(dn);
   if(fed&&fed.active&&e.title===fed.event){   // rangkuman AI Fed (hawkish/dovish + ID) — DOM/textContent (aman XSS)
    const tc=fed.tone==='hawkish'?'var(--down)':fed.tone==='dovish'?'var(--up)':'var(--amber2)';
    const fb=document.createElement('div');fb.className='calnote';fb.style.cssText='margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-left:3px solid '+tc+';border-radius:5px;background:rgba(255,140,26,.03)';
@@ -892,7 +898,9 @@ function loadCalendar(){Promise.all([fetch('/api/calendar').then(r=>r.json()),fe
    const ul=document.createElement('ul');ul.style.cssText='margin:5px 0 0;padding-left:16px;line-height:1.55';
    (fed.poin||[]).forEach(p=>{const li=document.createElement('li');li.textContent=p;ul.appendChild(li);});fb.appendChild(ul);
    if(fed.efek_btc){const ef=document.createElement('div');ef.style.cssText='margin-top:4px;color:var(--amber2)';ef.textContent='📊 '+fed.efek_btc;fb.appendChild(ef);}
-   row.appendChild(fb);}
+   det.appendChild(fb);}
+  hd.onclick=()=>{const open=det.classList.toggle('open');chev.style.transform=open?'rotate(180deg)':'';chev.style.color=open?'var(--amber)':'var(--dim)';};
+  row.appendChild(hd);row.appendChild(det);
   box.appendChild(row);
  });}).catch(_=>{});}
 function loadMetrics(){const s=sym;fetch('/api/metrics?sym='+sym).then(r=>r.json()).then(m=>{if(s!==sym)return;const f=$('funding');f.textContent=(m.funding>=0?'+':'')+m.funding.toFixed(4)+'%';f.className='g-v '+(m.funding>=0?'up':'down');$('fnd2').textContent=(m.funding>=0?'+':'')+m.funding.toFixed(4)+'%';$('fng').textContent=m.fng+(m.fng_txt?' · '+m.fng_txt:'');$('fngbar').style.width=(parseInt(m.fng)||0)+'%';$('mark').textContent=fp(m.mark);$('mk2').textContent=fp(m.mark);});}
