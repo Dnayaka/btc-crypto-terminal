@@ -39,6 +39,28 @@ def _login_fail(ip):
 _JOBS={}; _JOBLK=threading.Lock()   # S4: single-flight subprocess (cegah spawn bertumpuk / korup file)
 _FXLAST=[16000.0]   # H5: kurs USD/IDR terakhir-bagus (stale-on-error, jangan pin 16000 sejam)
 STOCKS_DIR="/home/dnayaka/Documents/dynamic_rsi/btc-terminal/stocks"
+# ===== Trading journal (per-user notes + screenshot, privat) =====
+import secrets as _secrets
+_JHERE=os.path.dirname(os.path.abspath(__file__))
+JOURNAL_F=os.path.join(_JHERE,"journal.json")
+JIMG_DIR=os.path.join(_JHERE,"journal_imgs")
+JCAP_ENTRIES=100; JCAP_IMG_BYTES=2*1024*1024
+_JLK=threading.Lock()
+def _jload():
+    try:
+        with open(JOURNAL_F) as f: return json.load(f)
+    except Exception: return {}
+def _jsave(d):
+    tmp=JOURNAL_F+".tmp"
+    fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+    with os.fdopen(fd,"w") as f: json.dump(d,f)
+    os.replace(tmp, JOURNAL_F)
+def _detect_img(raw):
+    """Sniff magic bytes -> ekstensi aman (JANGAN percaya nama-file/Content-Type dari client)."""
+    if raw[:3]==b"\xff\xd8\xff": return "jpg"
+    if raw[:8]==b"\x89PNG\r\n\x1a\n": return "png"
+    if raw[:4]==b"RIFF" and raw[8:12]==b"WEBP": return "webp"
+    return None
 S=requests.Session(); S.headers.update({'User-Agent':'Mozilla/5.0'}); FAPI="https://fapi.binance.com"
 import time as _time
 _DFAIL=[0.0]; _DFAIL_LK=threading.Lock()   # ts terakhir direct gagal -> skip direct 5mnt
@@ -369,7 +391,7 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
 <div class=fnbar><span><b>F1</b> MARKETS</span><span><b>F2</b> CHART</span><span><b>F3</b> LIQUIDITY</span><span><b>F4</b> STATS</span><span><b>F5</b> NEWS</span><span id=fnclock style="margin-left:auto;color:var(--amber)"></span></div>
 <div class=wrap>
  <header class=hdr><div class=brand><span class=bt>₿</span> DNAYAKA<span style="color:var(--dim);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-left:9px">Crypto Terminal</span><span class=cur></span></div>
-  <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/logout">LOGOUT</a><span class=tag>PUBLIC · LIVE</span></div></div></header>
+  <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/journal">JOURNAL</a><a class=navlink href="/logout">LOGOUT</a><span class=tag>PUBLIC · LIVE</span></div></div></header>
  <div class=symbar>
    <div class=symseg id=symSeg><button data-s=BTCUSDT class=act>BTC</button><button data-s=ETHUSDT>ETH</button><button data-s=SOLUSDT>SOL</button></div>
    <span class=label id=symlbl>perpetual · binance futures</span>
@@ -925,6 +947,74 @@ function clk(){$('ts').textContent=new Date().toUTCString().slice(5,22)+' UTC'}
 stat();clk();setInterval(stat,30000);setInterval(clk,1000);
 </script></body></html>"""
 
+JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
+<div class=wrap style="max-width:640px">
+ <header class=hdr><div class=brand><span class=bt style="font-size:15px">📓</span> DNAYAKA<span style="color:var(--dim);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-left:9px">Trading Journal</span><span class=cur></span></div>
+  <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/">CRYPTO</a><a class=navlink href="/logout">LOGOUT</a></div></div></header>
+ <section class="panel rv d2" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Entri Baru</span></div>
+  <input id=jsym placeholder="Simbol (opsional, mis. BTC)" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;margin-bottom:8px;box-sizing:border-box">
+  <textarea id=jnote placeholder="Catatan trade — kenapa entry, apa yang dipelajari, dst." style="width:100%;height:90px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+   <label style="font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:9px 12px;cursor:pointer">📷 Screenshot<input id=jfile type=file accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onPick(event)"></label>
+   <span id=jfname style="font-size:11px;color:var(--dim)"></span>
+  </div>
+  <img id=jprev style="display:none;max-width:100%;max-height:220px;border:1px solid var(--line);border-radius:6px;margin-top:8px">
+  <button onclick=saveEntry() style="width:100%;margin-top:10px;padding:13px;font-family:var(--mono);font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:6px;cursor:pointer;font-size:12px">Simpan Entri</button>
+  <div id=jmsg style="font-size:11px;color:var(--dim);margin-top:8px"></div>
+ </section>
+ <section class="panel rv d3" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Riwayat (kamu saja — privat)</span></div>
+  <div id=jlist style="display:flex;flex-direction:column;gap:10px">memuat…</div>
+ </section>
+ <footer class=foot><span>Journal · privat per-akun</span><span id=ts>—</span></footer>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
+let pendingImg=null;
+function onPick(ev){
+ const f=ev.target.files[0]; if(!f) return;
+ if(f.size>2*1024*1024){$('jmsg').textContent='gambar >2MB, pilih yang lebih kecil';$('jmsg').style.color='var(--down)';ev.target.value='';return}
+ $('jfname').textContent=f.name;
+ const r=new FileReader();
+ r.onload=()=>{pendingImg=r.result.split(',')[1];$('jprev').src=r.result;$('jprev').style.display='block'};
+ r.readAsDataURL(f);
+}
+function saveEntry(){
+ const note=$('jnote').value.trim(), sym=$('jsym').value.trim();
+ if(!note && !pendingImg){$('jmsg').textContent='isi catatan atau tempel screenshot dulu';$('jmsg').style.color='var(--down)';return}
+ $('jmsg').textContent='⟳ menyimpan…';$('jmsg').style.color='var(--amber)';
+ fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'add',note,sym,img_b64:pendingImg})})
+  .then(r=>r.json()).then(d=>{
+   $('jmsg').textContent=d.ok?'✓ tersimpan':(d.msg||'gagal');$('jmsg').style.color=d.ok?'var(--up)':'var(--down)';
+   if(d.ok){$('jnote').value='';$('jsym').value='';$('jfile').value='';$('jfname').textContent='';$('jprev').style.display='none';pendingImg=null;loadJournal()}
+  }).catch(_=>{$('jmsg').textContent='gagal';$('jmsg').style.color='var(--down)'});
+}
+function delEntry(id){
+ if(!confirm('Hapus entri ini?'))return;
+ fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'del',id})}).then(r=>r.json()).then(_=>loadJournal());
+}
+function loadJournal(){
+ fetch('/api/journal').then(r=>r.json()).then(d=>{
+  const es=(d.entries||[]).slice().reverse();
+  if(!es.length){$('jlist').innerHTML='<div style="font-size:12px;color:var(--dim)">belum ada entri</div>';return}
+  $('jlist').innerHTML=es.map(e=>{
+   const dt=new Date(e.ts*1000).toLocaleString();
+   const img=e.img?('<img src="/journal_img/'+e.img+'" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'';
+   const symtag=e.sym?('<span class=tag style="margin-right:8px">'+esc(e.sym)+'</span>'):'';
+   return '<div style="border:1px solid var(--line);border-radius:6px;padding:11px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:10.5px;color:var(--dim)">'+symtag+dt+'</span>'
+    +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></div>'
+    +(e.note?('<div style="font-size:12.5px;margin-top:7px;white-space:pre-wrap;line-height:1.5">'+esc(e.note)+'</div>'):'')
+    +img+'</div>';
+  }).join('');
+ }).catch(_=>{$('jlist').textContent='gagal memuat'});
+}
+function clk(){$('ts').textContent=new Date().toUTCString().slice(5,22)+' UTC'}
+loadJournal();clk();setInterval(clk,1000);
+</script></body></html>"""
+
 LOGIN=HEAD+"<title>DNAYAKA · Login</title></head><body>"+ATMOS+r"""
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
  <form method=POST action="/login" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:34px 30px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,.7)">
@@ -1002,6 +1092,41 @@ class H(BaseHTTPRequestHandler):
             _login_fail(ip)
             return self._redirect("/login?e=1")
         usr=self._user()
+        jusr = usr or (local and "local")
+        if path=="/api/journal":   # per-user, BUKAN admin-only -- siapapun yg login boleh tulis journal-nya sendiri
+            if not jusr: return self._s(401,"application/json",'{"ok":false,"msg":"login required"}')
+            try:
+                cap=int(JCAP_IMG_BYTES*1.4)+8192
+                n=max(0,min(int(self.headers.get("Content-Length",0)),cap)); body=json.loads(self.rfile.read(n)) if n else {}
+            except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"bad body"}')
+            act=body.get("act","add")
+            with _JLK:
+                d=_jload(); mine=d.setdefault(jusr,[])
+                if act=="del":
+                    iid=body.get("id","")
+                    removed=[e for e in mine if e.get("id")==iid]
+                    d[jusr]=[e for e in mine if e.get("id")!=iid]; _jsave(d)
+                    for e in removed:
+                        if e.get("img"):
+                            try: os.remove(os.path.join(JIMG_DIR,e["img"]))
+                            except Exception: pass
+                    return self._s(200,"application/json",'{"ok":true}')
+                if len(mine)>=JCAP_ENTRIES:
+                    return self._s(200,"application/json",json.dumps({"ok":False,"msg":f"limit {JCAP_ENTRIES} entri tercapai, hapus yg lama dulu"}))
+                note=str(body.get("note") or "")[:2000]; sym=str(body.get("sym") or "")[:20]
+                img_id=None; b64=body.get("img_b64")
+                if b64:
+                    try: raw=base64.b64decode(b64, validate=True)
+                    except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"gambar tak valid"}')
+                    if len(raw)>JCAP_IMG_BYTES: return self._s(400,"application/json",'{"ok":false,"msg":"gambar >2MB"}')
+                    ext=_detect_img(raw)
+                    if not ext: return self._s(400,"application/json",'{"ok":false,"msg":"format gambar tak didukung (jpg/png/webp)"}')
+                    os.makedirs(JIMG_DIR,exist_ok=True)
+                    img_id=_secrets.token_hex(16)+"."+ext
+                    with open(os.path.join(JIMG_DIR,img_id),"wb") as f: f.write(raw)
+                entry={"id":_secrets.token_hex(8),"ts":int(_time.time()),"note":note,"sym":sym,"img":img_id}
+                mine.append(entry); d[jusr]=mine; _jsave(d)
+            return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
         if not (local or (usr and is_admin(usr)) or self._auth_ok()): return self._need_auth()   # POST admin = localhost ATAU session-admin ATAU service basic-auth
         if path=="/api/users":   # admin: kelola user (signup HANYA di sini)
             try:
@@ -1058,6 +1183,24 @@ class H(BaseHTTPRequestHandler):
         if path=="/":          # page butuh login (kecuali localhost) -- /performa & /saham PINDAH ke admin :8789
             if not (local or usr): return self._redirect("/login")
             return self._s(200,"text/html", MAIN)
+        jusr = usr or (local and "local")   # journal butuh IDENTITAS nyata (per-user) -- localhost dapat pseudo-user "local", BUKAN bypass total kayak halaman lain
+        if path=="/journal":
+            if not jusr: return self._redirect("/login")
+            return self._s(200,"text/html", JOURNAL)
+        if path=="/api/journal":
+            if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
+            return self._s(200,"application/json", json.dumps({"entries":_jload().get(jusr,[])}))
+        if path.startswith("/journal_img/"):
+            if not jusr: return self._s(401,"text/plain","login required")
+            import re as _re
+            iid=path[len("/journal_img/"):]
+            if not _re.fullmatch(r"[a-f0-9]{32}\.(jpg|png|webp)", iid): return self._s(400,"text/plain","bad id")
+            mine=_jload().get(jusr,[])
+            if not any(e.get("img")==iid for e in mine): return self._s(404,"text/plain","not found")   # ownership check -- id server-random tapi tetap wajib punya sendiri
+            fp=os.path.join(JIMG_DIR,iid)
+            if not os.path.isfile(fp): return self._s(404,"text/plain","not found")
+            ct={"jpg":"image/jpeg","png":"image/png","webp":"image/webp"}[iid.rsplit(".",1)[-1]]
+            with open(fp,"rb") as f: return self._s(200,ct,f.read())
         if path.startswith("/api/") and not (local or usr or self._auth_ok()):   # API anti-scrape: localhost ATAU login (cookie) ATAU service basic-auth (ai_gen)
             return self._s(401,"application/json",'{"error":"login required"}')
         if path=="/api/btc_v20":
@@ -1164,7 +1307,7 @@ class H(BaseHTTPRequestHandler):
             except Exception: d='{"_ok":false}'
             return self._s(200,"application/json",d)
         if path=="/api/stock_klines":
-            import os, csv as _csv, re as _re2
+            import csv as _csv, re as _re2   # os JANGAN di-re-import lokal -- bikin shadow ke seluruh do_GET (UnboundLocalError di branch lain yg pakai os module-level)
             sym=parse_qs(p.query).get("sym",["^JKSE"])[0]
             if not _re2.fullmatch(r"[A-Za-z0-9.^]{1,12}", sym):   # whitelist -> cegah path traversal (sym mentah dari publik)
                 return self._s(200,"application/json","[]")

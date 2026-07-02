@@ -14,6 +14,8 @@ liq_real.json
 ob_liq.json
 ob_state.json
 paper_ob_state.json
+journal.json
+journal_imgs/
 
 # ---- runtime-mutable state / logs ----
 bot_config.json
