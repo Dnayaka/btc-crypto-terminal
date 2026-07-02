@@ -1020,8 +1020,9 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
   <div id=calGrid style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
   <div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:10px;color:var(--dim)"><span><span style="display:inline-block;width:8px;height:8px;background:var(--up);border-radius:2px;margin-right:4px"></span>profit</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--down);border-radius:2px;margin-right:4px"></span>loss</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--line);border-radius:2px;margin-right:4px"></span>nol/tak ada trade</span></div>
  </section>
- <section class="panel rv d3" style="margin-top:16px">
+ <section class="panel rv d3" style="margin-top:16px" id=jlistSec>
   <div class=panel-h><span class=t><span class=sq></span>Riwayat (kamu saja — privat)</span></div>
+  <div id=jlistFilter style="display:none;margin-bottom:9px;padding:7px 10px;background:rgba(255,140,26,.08);border:1px solid var(--amber);border-radius:6px;font-size:11px;color:var(--ink);align-items:center;justify-content:space-between;gap:8px"></div>
   <div id=jlist style="display:flex;flex-direction:column;gap:10px">memuat…</div>
  </section>
  <footer class=foot><span>Journal · privat per-akun</span><span id=ts>—</span></footer>
@@ -1070,6 +1071,14 @@ function renderPnlCard(){
  $('pnlN').textContent=lastEntries.length;
 }
 function calNav(d){calMonth+=d; if(calMonth<0){calMonth=11;calYear--} else if(calMonth>11){calMonth=0;calYear++} renderCalendar()}
+let calFilterDay=null;   // {y,m,d} kalau lagi filter riwayat ke 1 hari (klik kalender), null = tampil semua
+function calDayClick(y,m,d){
+ if(calFilterDay&&calFilterDay.y===y&&calFilterDay.m===m&&calFilterDay.d===d){calFilterDay=null;}   // klik lagi hari yg sama -> toggle-off
+ else{calFilterDay={y,m,d};}
+ renderCalendar(); renderList();
+ if(calFilterDay) document.getElementById('jlistSec').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearCalFilter(){calFilterDay=null;renderCalendar();renderList();}
 function renderCalendar(){
  $('calLabel').textContent=MONTH_NAMES[calMonth]+' '+calYear;
  const byDay={};
@@ -1085,9 +1094,12 @@ function renderCalendar(){
  for(let i=0;i<startDow;i++) html+='<div></div>';
  for(let day=1;day<=daysInMonth;day++){
   const b=byDay[day]; const isToday=new Date(calYear,calMonth,day).toDateString()===todayKey;
+  const isSel=calFilterDay&&calFilterDay.y===calYear&&calFilterDay.m===calMonth&&calFilterDay.d===day;
   let bg='var(--bg)', bd='var(--line)', txtcol='var(--dim)';
   if(b&&b.has){ if(b.pnl>0){bg='rgba(39,208,122,.16)';bd='var(--up)'} else if(b.pnl<0){bg='rgba(255,69,58,.16)';bd='var(--down)'} else {bg='rgba(255,140,26,.10)';bd='var(--amber)'} txtcol='var(--ink)' }
-  html+='<div style="aspect-ratio:1;border:1px solid '+(isToday?'var(--amber)':bd)+';background:'+bg+';border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px">'
+  const clickable=b&&b.has;
+  html+='<div'+(clickable?(' onclick="calDayClick('+calYear+','+calMonth+','+day+')"'):'')
+   +' style="aspect-ratio:1;border:'+(isSel?'2px solid var(--amber)':'1px solid '+(isToday?'var(--amber)':bd))+';background:'+bg+';border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px'+(clickable?';cursor:pointer':'')+(isSel?';box-shadow:0 0 0 2px rgba(255,140,26,.25)':'')+'">'
    +'<span style="font-size:10px;color:'+txtcol+'">'+day+'</span>'
    +(b&&b.has?('<span style="font-size:8.5px;font-weight:600;color:'+(b.pnl>0?'var(--up)':b.pnl<0?'var(--down)':'var(--amber)')+'">'+(b.pnl!==0?fmtMoney(b.pnl):b.n+'t')+'</span>'):'')
    +'</div>';
@@ -1240,9 +1252,21 @@ function delEntry(id){
 function loadJournal(){
  fetch('/api/journal').then(r=>r.json()).then(d=>{
   lastEntries=d.entries||[];
-  renderPnlCard(); renderCalendar();
-  const es=lastEntries.slice().sort((a,b)=>b.ts-a.ts);
-  if(!es.length){$('jlist').innerHTML='<div style="font-size:12px;color:var(--dim)">belum ada entri</div>';return}
+  renderPnlCard(); renderCalendar(); renderList();
+ }).catch(_=>{$('jlist').textContent='gagal memuat'});
+}
+function renderList(){
+  const fEl=$('jlistFilter');
+  let es=lastEntries.slice().sort((a,b)=>b.ts-a.ts);
+  if(calFilterDay){
+   es=es.filter(e=>{const d=new Date(e.ts*1000);return d.getFullYear()===calFilterDay.y&&d.getMonth()===calFilterDay.m&&d.getDate()===calFilterDay.d;});
+   const lbl=new Date(calFilterDay.y,calFilterDay.m,calFilterDay.d).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+   fEl.style.display='flex';
+   fEl.innerHTML='<span>📅 Nampilin <b>'+es.length+' trade</b> tanggal <b>'+lbl+'</b></span><button onclick="clearCalFilter()" style="background:none;border:1px solid var(--amber);color:var(--amber);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">✕ tampilkan semua</button>';
+  } else {
+   fEl.style.display='none'; fEl.innerHTML='';
+  }
+  if(!es.length){$('jlist').innerHTML='<div style="font-size:12px;color:var(--dim)">'+(calFilterDay?'nggak ada entri tanggal ini':'belum ada entri')+'</div>';return}
   $('jlist').innerHTML=es.map(e=>{
    const dtxt=new Date(e.ts*1000).toLocaleString();
    const img=e.img?('<img src="/journal_img/'+e.img+'" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'';
@@ -1265,7 +1289,6 @@ function loadJournal(){
     +(e.note?('<div style="font-size:12.5px;margin-top:7px;white-space:pre-wrap;line-height:1.5">'+esc(e.note)+'</div>'):'')
     +img+'</div>';
   }).join('');
- }).catch(_=>{$('jlist').textContent='gagal memuat'});
 }
 function clk(){$('ts').textContent=new Date().toUTCString().slice(5,22)+' UTC'}
 loadJournal();clk();setInterval(clk,1000);
