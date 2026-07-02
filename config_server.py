@@ -1035,8 +1035,12 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
   <div id=calGrid style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
   <div style="display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:10px;color:var(--dim)"><span><span style="display:inline-block;width:8px;height:8px;background:var(--up);border-radius:2px;margin-right:4px"></span>profit</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--down);border-radius:2px;margin-right:4px"></span>loss</span><span><span style="display:inline-block;width:8px;height:8px;background:var(--line);border-radius:2px;margin-right:4px"></span>nol/tak ada trade</span></div>
  </section>
+ <section class="panel rv d3" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Statistik</span></div>
+  <div id=jstats style="font-size:11.5px;color:var(--dim)">belum ada data</div>
+ </section>
  <section class="panel rv d3" style="margin-top:16px" id=jlistSec>
-  <div class=panel-h><span class=t><span class=sq></span>Riwayat (kamu saja — privat)</span></div>
+  <div class=panel-h><span class=t><span class=sq></span>Riwayat (kamu saja — privat)</span><button onclick=exportCsv() style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:4px;cursor:pointer;font-size:10px;padding:4px 9px">⬇ export CSV</button></div>
   <div id=jlistFilter style="display:none;margin-bottom:9px;padding:7px 10px;background:rgba(255,140,26,.08);border:1px solid var(--amber);border-radius:6px;font-size:11px;color:var(--ink);align-items:center;justify-content:space-between;gap:8px"></div>
   <div id=jlist style="display:flex;flex-direction:column;gap:10px">memuat…</div>
  </section>
@@ -1072,7 +1076,7 @@ function autoPnl(){
 }
 const _now0=new Date(); let calYear=_now0.getFullYear(), calMonth=_now0.getMonth();
 const MONTH_NAMES=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-function fmtMoney(n){const s=Math.abs(n)>=1000?Number(n.toFixed(0)).toLocaleString():n.toFixed(2);return (n>=0?'+':'-')+'$'+s}
+function fmtMoney(n){const a=Math.abs(n);const s=a>=1000?Number(a.toFixed(0)).toLocaleString():a.toFixed(2);return (n>=0?'+':'-')+'$'+s}
 function renderPnlCard(){
  const withPnl=lastEntries.filter(e=>e.pnl!=null);
  const total=withPnl.reduce((a,e)=>a+e.pnl,0);
@@ -1267,8 +1271,57 @@ function delEntry(id){
 function loadJournal(){
  fetch('/api/journal').then(r=>r.json()).then(d=>{
   lastEntries=d.entries||[];
-  renderPnlCard(); renderCalendar(); renderList();
+  renderPnlCard(); renderCalendar(); renderList(); renderStats();
  }).catch(_=>{$('jlist').textContent='gagal memuat'});
+}
+function csvEsc(v){v=(v==null?'':String(v));return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v}
+function exportCsv(){
+ if(!lastEntries.length){alert('belum ada entri buat di-export');return}
+ const cols=['tanggal','simbol','arah','modal','entry','exit','sl','leverage','pnl','catatan'];
+ const rows=[cols.join(',')];
+ lastEntries.slice().sort((a,b)=>a.ts-b.ts).forEach(e=>{
+  rows.push([
+   new Date(e.ts*1000).toISOString(), e.sym||'', e.dir===-1?'SHORT':'LONG',
+   e.modal??'', e.entry??'', e.exit??'', e.sl??'', e.lev??'', e.pnl??'', e.note||''
+  ].map(csvEsc).join(','));
+ });
+ const blob=new Blob(['﻿'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='journal-'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+ URL.revokeObjectURL(a.href);
+}
+function renderStats(){
+ const box=$('jstats');
+ if(!lastEntries.length){box.textContent='belum ada data';return}
+ const withPnl=lastEntries.filter(e=>e.pnl!=null);
+ if(!withPnl.length){box.textContent='isi PnL di entri dulu biar statistik kehitung';return}
+ // per simbol
+ const bySym={};
+ withPnl.forEach(e=>{const k=e.sym||'(tanpa simbol)';const s=bySym[k]||{n:0,win:0,pnl:0};s.n++;s.pnl+=e.pnl;if(e.pnl>0)s.win++;bySym[k]=s;});
+ // per hari-dalam-minggu
+ const DOW=['Min','Sen','Sel','Rab','Kam','Jum','Sab']; const byDow=DOW.map(()=>({n:0,win:0,pnl:0}));
+ withPnl.forEach(e=>{const dw=new Date(e.ts*1000).getDay();const s=byDow[dw];s.n++;s.pnl+=e.pnl;if(e.pnl>0)s.win++;});
+ // avg win/loss + streak (urut kronologis)
+ const chrono=withPnl.slice().sort((a,b)=>a.ts-b.ts);
+ const wins=chrono.filter(e=>e.pnl>0), losses=chrono.filter(e=>e.pnl<0);
+ const avgWin=wins.length?wins.reduce((a,e)=>a+e.pnl,0)/wins.length:0;
+ const avgLoss=losses.length?losses.reduce((a,e)=>a+e.pnl,0)/losses.length:0;
+ let curW=0,curL=0,maxW=0,maxL=0;
+ chrono.forEach(e=>{if(e.pnl>0){curW++;curL=0;maxW=Math.max(maxW,curW);}else if(e.pnl<0){curL++;curW=0;maxL=Math.max(maxL,curL);}else{curW=0;curL=0;}});
+ const best=chrono.reduce((a,e)=>e.pnl>(a?a.pnl:-Infinity)?e:a,null);
+ const worst=chrono.reduce((a,e)=>e.pnl<(a?a.pnl:Infinity)?e:a,null);
+ const rowsHtml=(obj,label)=>Object.entries(obj).sort((a,b)=>b[1].pnl-a[1].pnl).map(([k,s])=>
+  '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line)"><span>'+esc(k)+' <span style="color:var(--faint)">('+s.n+'t, '+Math.round(s.win/s.n*100)+'% WR)</span></span><b style="color:'+(s.pnl>=0?'var(--up)':'var(--down)')+'">'+fmtMoney(s.pnl)+'</b></div>').join('');
+ box.innerHTML=
+  '<div style="margin-bottom:10px"><div style="color:var(--ink);font-weight:600;margin-bottom:4px">Per simbol</div>'+rowsHtml(bySym)+'</div>'
+  +'<div style="margin-bottom:10px"><div style="color:var(--ink);font-weight:600;margin-bottom:4px">Per hari</div>'+rowsHtml(Object.fromEntries(DOW.map((d,i)=>[d,byDow[i]]).filter(([,s])=>s.n>0)))+'</div>'
+  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:10px">'
+  +'<div><div class=label>Avg win</div><div style="color:var(--up);font-weight:600">'+fmtMoney(avgWin)+'</div></div>'
+  +'<div><div class=label>Avg loss</div><div style="color:var(--down);font-weight:600">'+fmtMoney(avgLoss)+'</div></div>'
+  +'<div><div class=label>Win streak terpanjang</div><div style="color:var(--ink);font-weight:600">'+maxW+'</div></div>'
+  +'<div><div class=label>Loss streak terpanjang</div><div style="color:var(--ink);font-weight:600">'+maxL+'</div></div>'
+  +(best?'<div><div class=label>Trade terbaik</div><div style="color:var(--up);font-weight:600">'+fmtMoney(best.pnl)+' <span style="color:var(--faint);font-weight:400">('+esc(best.sym||'-')+')</span></div></div>':'')
+  +(worst?'<div><div class=label>Trade terburuk</div><div style="color:var(--down);font-weight:600">'+fmtMoney(worst.pnl)+' <span style="color:var(--faint);font-weight:400">('+esc(worst.sym||'-')+')</span></div></div>':'')
+  +'</div>';
 }
 function renderList(){
   const fEl=$('jlistFilter');
