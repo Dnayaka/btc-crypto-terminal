@@ -47,7 +47,7 @@ def v20_trades(df):
 
 def build():
     df=pd.read_csv(CSV) if "--nofetch" in sys.argv else update_csv()
-    if "dt" not in df: df["dt"]=pd.to_datetime(df["open_time"],unit="ms",utc=True)
+    df["dt"]=pd.to_datetime(df["open_time"],unit="ms",utc=True)   # selalu re-derive dari open_time (jangan percaya dtype 'dt' dari CSV -- kebaca string, bukan datetime64, bikin .dt accessor gagal)
     res,t=v20_trades(df)
     n=len(df); w0=max(0,n-NBARS); wt=w0    # marker/trade window = bars window (konsisten, ga numpuk di pojok kiri)
     ot=df["open_time"].to_numpy()

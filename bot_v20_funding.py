@@ -70,6 +70,39 @@ COOLDOWN = 6
 PB_W = 28
 SESS = requests.Session()
 
+# ===================== MACRO-EVENT SL WIDENING (FOMC + NFP) =====================
+# Port dari version20_1_pullback_regimeTP.pine (2-Jul) -- riset 1-Jul (harness eng.py 558 trade
+# 2019-2026): cal 297->308, WR+0.2pt, DD SAMA PERSIS 10.97 (macro-window cuma ~1% bar), OOS-test
+# cal 21.2->22.7. Sebelum port ini, LIVE BOT TAK PUNYA fitur ini (cuma pine yg divalidasi) --
+# ketahuan 2-Jul saat cross-check pine vs python, execution diam-diam beda dari yg didoc.
+# ⚠ MAINTENANCE: array ini HARUS disinkron manual dgn fomc_dk di file .pine (perpanjang bareng
+# tiap akhir tahun -- pine punya alarm auto kalau lupa, python ini TIDAK, jadi WAJIB ingat).
+FOMC_DATES = [
+ 20190130,20190320,20190501,20190619,20190731,20190918,20191030,20191211,
+ 20200129,20200318,20200429,20200610,20200729,20200916,20201105,20201216,
+ 20210127,20210317,20210428,20210616,20210728,20210922,20211103,20211215,
+ 20220126,20220316,20220504,20220615,20220727,20220921,20221102,20221214,
+ 20230201,20230322,20230503,20230614,20230726,20230920,20231101,20231213,
+ 20240131,20240320,20240501,20240612,20240731,20240918,20241107,20241218,
+ 20250129,20250319,20250507,20250618,20250730,20250917,20251029,20251210,
+ 20260128,20260318,20260429,20260617,20260729,20260916,20261028,20261209,
+ 20270127,20270317,20270428,20270609,20270728,20270915,20271027,20271208,
+]
+FOMC_SET = set(FOMC_DATES)
+MACRO_MULT, MACRO_BEFORE, MACRO_AFTER = 1.3, 2, 3
+
+def macro_sl_mult(dt_utc):
+    """Array pengali SL per-bar (1.0 normal, MACRO_MULT saat jendela FOMC 14:00 ET / NFP 08:30 ET).
+    dt_utc: pandas Series datetime tz-aware UTC (df['dt']). Faithful port pine `in_macro_window`."""
+    et = dt_utc.dt.tz_convert("America/New_York")
+    dk = et.dt.year*10000 + et.dt.month*100 + et.dt.day
+    h  = et.dt.hour
+    is_fomc = dk.isin(FOMC_SET)
+    is_nfp  = (et.dt.dayofweek==4) & (et.dt.day<=7)          # Jumat pertama tiap bulan (dayofweek: Jumat=4)
+    in_fomc = is_fomc & (h>=14-MACRO_BEFORE) & (h<=14+MACRO_AFTER)
+    in_nfp  = is_nfp  & (h>=8-MACRO_BEFORE)  & (h<=8+MACRO_AFTER)
+    return np.where(in_fomc|in_nfp, MACRO_MULT, 1.0)
+
 # ===================== SINYAL =====================
 def pbsig(o,h,l,c,R,E,ap,body,side,W=PB_W):
     """Pullback-continuation additive (identik eng test harness / pine v19-v20)."""
@@ -107,7 +140,7 @@ def build_v20_context(df):
     cf['add_long']=aL; cf['add_short']=aS
     long_sig,short_sig,atr_pct,_=signals(df,cf,(o,h,l,c,R,E,A))
     tp=np.full(len(c),TP_BASE); tp[atr_pct>TP_WALL]=TP_GENTLE
-    sl=np.full(len(c),SL_V20)
+    sl=np.full(len(c),SL_V20)*macro_sl_mult(df['dt'])   # ★ macro-SL widening (BTC-only, matches pine v20.1)
     return dict(o=o,h=h,l=l,c=c,A=A,long=long_sig,short=short_sig,tp=tp,sl=sl)
 
 # per-ticker vol-normalized params (riset multiticker 26-Jun, [[btc-multiticker-eth-sol]]):
