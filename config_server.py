@@ -412,9 +412,33 @@ FAVICON_SVG=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
  "</svg>")
 import urllib.parse as _fuq
 FAVICON_DATAURI="data:image/svg+xml,"+_fuq.quote(FAVICON_SVG)
+
+# ===== PWA (installable "Add to Home Screen") =====
+_ICON_DIR=os.path.join(_JHERE,"icons")
+def _read_icon(name):
+    try:
+        with open(os.path.join(_ICON_DIR,name),"rb") as f: return f.read()
+    except Exception: return b""
+ICON_192=_read_icon("icon-192.png"); ICON_512=_read_icon("icon-512.png")
+PWA_MANIFEST=json.dumps({
+    "name":"DNAYAKA Crypto Terminal","short_name":"BTC Terminal",
+    "start_url":"/","display":"standalone","background_color":"#0a0700","theme_color":"#0a0700",
+    "description":"Bloomberg-style BTC/ETH/SOL trading terminal — live chart, journal, alerts",
+    "icons":[{"src":"/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+             {"src":"/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
+})
+SW_JS=("const CACHE='dnayaka-terminal-v1';"
+"self.addEventListener('install',e=>self.skipWaiting());"
+"self.addEventListener('activate',e=>self.clients.claim());"
+"self.addEventListener('fetch',e=>{});")   # no offline caching (data harus selalu live) -- SW cuma buat installability
 HEAD=("<!doctype html><html lang=en><head><meta charset=utf-8>"
 "<meta name=viewport content='width=device-width,initial-scale=1'>"
 f"<link rel=icon type=image/svg+xml href=\"{FAVICON_DATAURI}\">"
+"<link rel=manifest href=/manifest.json>"
+"<link rel=apple-touch-icon href=/icons/icon-192.png>"
+"<meta name=theme-color content=#0a0700><meta name=apple-mobile-web-app-capable content=yes>"
+"<meta name=apple-mobile-web-app-status-bar-style content=black-translucent>"
+"<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});</script>"
 "<script src='https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'></script>"
 "<link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin>"
 "<link href='https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap' rel=stylesheet>"
@@ -1667,6 +1691,10 @@ class H(BaseHTTPRequestHandler):
         p=urlparse(self.path); path=p.path
         if path=="/favicon.ico":   # browser lama yg ga baca <link rel=icon> minta path ini default -> kasih icon beneran (bukan 204 kosong)
             return self._s(200,"image/svg+xml",FAVICON_SVG)
+        if path=="/manifest.json": return self._s(200,"application/manifest+json",PWA_MANIFEST)
+        if path=="/sw.js": return self._s(200,"application/javascript",SW_JS)
+        if path=="/icons/icon-192.png": return self._s(200,"image/png",ICON_192) if ICON_192 else self._s(404,"text/plain","not found")
+        if path=="/icons/icon-512.png": return self._s(200,"image/png",ICON_512) if ICON_512 else self._s(404,"text/plain","not found")
         local=self._is_local()
         if not local and not _rl_ok(self._client_ip()): return self._s(429,"application/json",'{"error":"rate limit"}')   # anti-DDoS
         if path=="/login":
