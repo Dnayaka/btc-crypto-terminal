@@ -4,3 +4,4 @@ requests>=2.31
 urllib3>=2.0
 ccxt>=4.0
 curl_cffi>=0.6      # optional: only needed for the IDX stock-signal feature (admin /saham)
+pywebpush>=2.0       # browser push notifications for price/RSI alerts (check_alerts_push.py)

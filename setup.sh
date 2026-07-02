@@ -39,6 +39,22 @@ if [ ! -f .terminal_pass ]; then
 else
   ok ".terminal_pass already exists, left untouched"
 fi
+if [ ! -f vapid_keys.json ]; then
+  python3 -c "
+from py_vapid import Vapid02
+from cryptography.hazmat.primitives import serialization
+import base64, json, os
+v=Vapid02(); v.generate_keys()
+raw=v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+out={'private_pem':v.private_pem().decode(),'public_key':base64.urlsafe_b64encode(raw).rstrip(b'=').decode()}
+tmp='vapid_keys.json.tmp'; fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+with os.fdopen(fd,'w') as f: json.dump(out,f)
+os.replace(tmp,'vapid_keys.json')
+"
+  ok "vapid_keys.json generated (browser push notification keypair)"
+else
+  ok "vapid_keys.json already exists, left untouched"
+fi
 
 # ---------- 3. Admin account bootstrap ----------
 say "Admin account"
@@ -140,6 +156,7 @@ NEWCRON="$(cat <<EOF
 */10 * * * * cd $DIR && python3 ai_gen.py --once >> ai_gen.log 2>&1 $MARK
 7 * * * * cd $DIR && python3 cal_fetch.py >> cal_fetch.log 2>&1 $MARK
 */15 * * * * cd $DIR && python3 fed_summary.py >> fed_summary.log 2>&1 $MARK
+*/2 * * * * cd $DIR && python3 check_alerts_push.py >> check_alerts_push.log 2>&1 $MARK
 EOF
 )"
 TMPCRON="$(mktemp)"

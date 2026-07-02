@@ -74,6 +74,24 @@ def _asave(d):
     fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
     with os.fdopen(fd,"w") as f: json.dump(d,f)
     os.replace(tmp, ALERTS_F)
+# ===== Web Push (browser notif, tetap kena walau tab ketutup -- beda dari checkAlerts() client-side) =====
+VAPID_F=os.path.join(_JHERE,"vapid_keys.json")
+PUSHSUB_F=os.path.join(_JHERE,"push_subs.json")
+PUSHSUB_CAP=10   # maks device/browser per user
+_PLK=threading.Lock()
+def _vapid_pubkey():
+    try:
+        with open(VAPID_F) as f: return json.load(f).get("public_key")
+    except Exception: return None
+def _psload():
+    try:
+        with open(PUSHSUB_F) as f: return json.load(f)
+    except Exception: return {}
+def _pssave(d):
+    tmp=PUSHSUB_F+".tmp"
+    fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+    with os.fdopen(fd,"w") as f: json.dump(d,f)
+    os.replace(tmp, PUSHSUB_F)
 S=requests.Session(); S.headers.update({'User-Agent':'Mozilla/5.0'}); FAPI="https://fapi.binance.com"
 import time as _time
 _DFAIL=[0.0]; _DFAIL_LK=threading.Lock()   # ts terakhir direct gagal -> skip direct 5mnt
@@ -430,7 +448,12 @@ PWA_MANIFEST=json.dumps({
 SW_JS=("const CACHE='dnayaka-terminal-v1';"
 "self.addEventListener('install',e=>self.skipWaiting());"
 "self.addEventListener('activate',e=>self.clients.claim());"
-"self.addEventListener('fetch',e=>{});")   # no offline caching (data harus selalu live) -- SW cuma buat installability
+"self.addEventListener('fetch',e=>{});"   # no offline caching (data harus selalu live) -- SW cuma buat installability
+"self.addEventListener('push',e=>{"       # alert price/RSI: tetap kena walau tab ketutup (server kirim via check_alerts_push.py)
+ "let d={title:'DNAYAKA Terminal',body:'Alert kena'};try{d=e.data.json();}catch(_){}"
+ "e.waitUntil(self.registration.showNotification(d.title,{body:d.body,icon:'/icons/icon-192.png',badge:'/icons/icon-192.png',tag:d.tag||'alert'}));"
+"});"
+"self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.openWindow('/'));});")
 HEAD=("<!doctype html><html lang=en><head><meta charset=utf-8>"
 "<meta name=viewport content='width=device-width,initial-scale=1'>"
 f"<link rel=icon type=image/svg+xml href=\"{FAVICON_DATAURI}\">"
@@ -465,7 +488,7 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
   </div>
  </section>
  <section class="panel rv d2" style="margin-top:16px">
-  <div class=panel-h><span class=t><span class=sq></span>Alert · Price/RSI (web — selama tab kebuka)</span></div>
+  <div class=panel-h><span class=t><span class=sq></span>Alert · Price/RSI</span></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
    <select id=alSym style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px"><option value=BTCUSDT>BTC</option><option value=ETHUSDT>ETH</option><option value=SOLUSDT>SOL</option></select>
    <select id=alType style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px"><option value=price>Harga</option><option value=rsi>RSI (15m)</option></select>
@@ -475,7 +498,11 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
   </div>
   <div id=alMsg style="font-size:10.5px;color:var(--dim);margin-bottom:6px"></div>
   <div id=alList style="display:flex;flex-direction:column;gap:6px">memuat…</div>
-  <p style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">⚠️ Alert ini dicek di browser (bukan WhatsApp/push) — cuma jalan selama tab situs ini terbuka. Sekali kena, otomatis nonaktif (nggak spam berulang).</p>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+   <button id=pushBtn onclick=togglePush() style="padding:8px 14px;font-family:var(--mono);font-weight:600;letter-spacing:.04em;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:11px">🔔 Aktifkan notifikasi push</button>
+   <span id=pushStat style="font-size:10.5px;color:var(--dim)"></span>
+  </div>
+  <p style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">Tanpa push aktif, alert cuma dicek selama tab situs ini terbuka. Push aktif → alert tetap kena walau tab ketutup/HP terkunci (dicek server tiap ±2 menit, bukan WhatsApp). Sekali kena, otomatis nonaktif (nggak spam berulang).</p>
  </section>
  <section class="panel rv d2" style="margin-top:16px">
   <div class=panel-h><span class=t><span class=sq></span>Perbandingan BTC / ETH / SOL</span></div>
@@ -1063,6 +1090,31 @@ function addAlert(){
 }
 function delAlert(id){fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'del',id})}).then(_=>loadAlerts());}
 function ackAlert(id){fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'ack',id})}).then(_=>loadAlerts());}
+function urlBase64ToUint8Array(b64){const pad='='.repeat((4-b64.length%4)%4);const base64=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);const arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);return arr;}
+async function currentPushSub(){if(!('serviceWorker' in navigator)||!('PushManager' in window))return null;try{const reg=await navigator.serviceWorker.ready;return await reg.pushManager.getSubscription();}catch(e){return null;}}
+async function updatePushStatus(){const stat=$('pushStat'),btn=$('pushBtn');if(!stat)return;
+ if(!('PushManager' in window)){stat.textContent='browser ini gak dukung push';btn.style.display='none';return;}
+ const sub=await currentPushSub();
+ if(sub){btn.textContent='🔕 Matikan notifikasi push';stat.textContent='aktif di device ini';}
+ else{btn.textContent='🔔 Aktifkan notifikasi push';stat.textContent=Notification.permission==='denied'?'diblokir di browser — izinkan dulu di setting':'';}
+}
+async function togglePush(){const stat=$('pushStat');
+ const existing=await currentPushSub();
+ if(existing){
+  try{await fetch('/api/push_unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:existing.endpoint})});await existing.unsubscribe();}catch(e){}
+  updatePushStatus(); return;
+ }
+ try{
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){stat.textContent='izin ditolak';return;}
+  const keyRes=await fetch('/api/push_vapid_key').then(r=>r.json());
+  if(!keyRes.key){stat.textContent='push belum di-setup di server';return;}
+  const reg=await navigator.serviceWorker.ready;
+  const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(keyRes.key)});
+  await fetch('/api/push_subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:sub.toJSON()})});
+  updatePushStatus();
+ }catch(e){stat.textContent='gagal aktifkan: '+(e.message||e);}
+}
 function checkAlerts(){
  const active=alAlerts.filter(a=>a.active); if(!active.length)return;
  const bySym={}; active.forEach(a=>{(bySym[a.sym]=bySym[a.sym]||[]).push(a);});
@@ -1090,7 +1142,7 @@ function checkAlerts(){
 if(window.Notification&&Notification.permission==='default'){ /* minta izin notif browser cuma kalau user udah pernah interaksi -> minta pas pertama kali klik halaman */
  document.addEventListener('click',function _once(){Notification.requestPermission();document.removeEventListener('click',_once);},{once:true});
 }
-loadAlerts();loadCompare();loadEqCompare();
+loadAlerts();loadCompare();loadEqCompare();updatePushStatus();
 function poll(fn,ms){setTimeout(function(){fn();setInterval(fn,ms*(0.9+Math.random()*0.2));},Math.random()*ms);}  // jitter: anti cache-stampede 100 user lock-step
 setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);poll(loadCompare,20000);poll(loadEqCompare,30000);
 </script></body></html>"""
@@ -1663,7 +1715,29 @@ class H(BaseHTTPRequestHandler):
                        "exit":_num("exit"),"dir":(-1 if body.get("dir")==-1 or body.get("dir")=="-1" else 1)}
                 mine.append(entry); d[jusr]=mine; _jsave(d)
             return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
-        if path=="/api/alerts":   # per-user, web-only (nol WA/push) -- FE polling ngecek selama tab kebuka
+        if path=="/api/push_subscribe":
+            if not jusr: return self._s(401,"application/json",'{"ok":false,"msg":"login required"}')
+            try:
+                n=max(0,min(int(self.headers.get("Content-Length",0)),4096)); body=json.loads(self.rfile.read(n)) if n else {}
+            except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"bad body"}')
+            sub=body.get("subscription")
+            if not sub or not isinstance(sub,dict) or "endpoint" not in sub: return self._s(400,"application/json",'{"ok":false,"msg":"subscription tak valid"}')
+            with _PLK:
+                d=_psload(); mine=d.setdefault(jusr,[])
+                mine=[s for s in mine if s.get("endpoint")!=sub["endpoint"]]   # replace kalau endpoint sama (re-subscribe)
+                mine.append(sub); d[jusr]=mine[-PUSHSUB_CAP:]; _pssave(d)
+            return self._s(200,"application/json",'{"ok":true}')
+        if path=="/api/push_unsubscribe":
+            if not jusr: return self._s(401,"application/json",'{"ok":false,"msg":"login required"}')
+            try:
+                n=max(0,min(int(self.headers.get("Content-Length",0)),4096)); body=json.loads(self.rfile.read(n)) if n else {}
+            except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"bad body"}')
+            ep=body.get("endpoint","")
+            with _PLK:
+                d=_psload(); mine=d.get(jusr,[])
+                d[jusr]=[s for s in mine if s.get("endpoint")!=ep]; _pssave(d)
+            return self._s(200,"application/json",'{"ok":true}')
+        if path=="/api/alerts":   # per-user, web (client-side selama tab kebuka) + push browser (server-side, tetap kena walau tab ketutup -- lihat check_alerts_push.py)
             if not jusr: return self._s(401,"application/json",'{"ok":false,"msg":"login required"}')
             try:
                 n=max(0,min(int(self.headers.get("Content-Length",0)),4096)); body=json.loads(self.rfile.read(n)) if n else {}
@@ -1765,6 +1839,9 @@ class H(BaseHTTPRequestHandler):
                 entries=entries+list(d.get("__bot_v20__",[]))
                 entries.sort(key=lambda e:e.get("ts",0))
             return self._s(200,"application/json", json.dumps({"entries":entries}))
+        if path=="/api/push_vapid_key":
+            pk=_vapid_pubkey()
+            return self._s(200,"application/json",json.dumps({"key":pk})) if pk else self._s(503,"application/json",'{"key":null}')
         if path=="/api/alerts":
             if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
             return self._s(200,"application/json", json.dumps({"alerts":_aload().get(jusr,[])}))

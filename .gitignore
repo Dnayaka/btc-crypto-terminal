@@ -17,6 +17,8 @@ paper_ob_state.json
 journal.json
 journal_imgs/
 alerts.json
+vapid_keys.json
+push_subs.json
 
 # ---- runtime-mutable state / logs ----
 bot_config.json
