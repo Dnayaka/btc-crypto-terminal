@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """notify_wa.py — kirim WhatsApp via daemon Baileys lokal (wa-daemon, port 18790).
-Daemon harus jalan & sudah scan-QR. Nomor default 6289672845575 (089672845575 +62)."""
+Daemon harus jalan & sudah scan-QR. Nomor tujuan: env WA_PHONE, atau field "wa_phone" di
+bot_secrets.json (gitignored), atau kosong (fitur no-op sampai diisi lewat admin panel)."""
 import os, sys, json, requests
-WA_PHONE  = os.environ.get("WA_PHONE", "6289672845575")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CFG = os.path.join(_HERE, "bot_config.json")
+_SECF = os.path.join(_HERE, "bot_secrets.json")
+def _wa_phone():
+    if os.environ.get("WA_PHONE"): return os.environ["WA_PHONE"]
+    try: return json.load(open(_SECF)).get("wa_phone", "")
+    except Exception: return ""
+WA_PHONE  = _wa_phone()
 WA_DAEMON = os.environ.get("WA_DAEMON", "http://127.0.0.1:18790")
-_CFG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_config.json")
 def wa_enabled():
     """Fitur WhatsApp ON/OFF dari bot_config.json (default OFF). Bisa di-toggle di admin :8789."""
-    try: return bool(json.load(open(_CFG)).get("wa_enabled", False))
+    try: return bool(json.load(open(_CFG)).get("wa_enabled", False)) and bool(WA_PHONE)
     except Exception: return False
 def send_whatsapp(text):
     if not wa_enabled():

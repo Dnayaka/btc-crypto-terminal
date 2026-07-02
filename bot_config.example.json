@@ -13,5 +13,9 @@
     "enabled": true,
     "max_dd_pct": 15,
     "max_loss_streak": 6
-  }
+  },
+  "tripwire": {
+    "enabled": true
+  },
+  "tripwire_size_mult": 1.0
 }

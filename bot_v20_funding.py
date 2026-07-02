@@ -138,7 +138,7 @@ def build_v20_context_multi(df, sym):
 def new_sleeve(): return dict(pos=0,entry=0.0,tp=0.0,sl=0.0,hi=0.0,lo=0.0,trail=None,
                               gap=0.0,pending=0,entry_i=-1,last_entry_i=-10**9,
                               last_exit_dir=0,last_exit_i=-10**9,
-                              held=0,equity=1.0,ntr=0,nwin=0,loss_streak=0)
+                              held=0,equity=1.0,ntr=0,nwin=0,loss_streak=0,hist=[])
 
 def step_v20(s, i, ctx, fill_next_open=True, ai=None):
     """Proses bar i utk sleeve v20. Mengembalikan list event (string). Mutasi s in-place.
@@ -170,6 +170,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
             if ex:
                 r=(px/s['entry']-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
                 s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
+                s.setdefault('hist',[]).append({"dir":1,"net":r}); s['hist']=s['hist'][-100:]
                 ev.append(f"EXIT  v20 LONG  @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=1; s['last_exit_i']=aidx
             else:
@@ -184,6 +185,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
             if ex:
                 r=(s['entry']/px-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
                 s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
+                s.setdefault('hist',[]).append({"dir":-1,"net":r}); s['hist']=s['hist'][-100:]
                 ev.append(f"EXIT  v20 SHORT @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=-1; s['last_exit_i']=aidx
             else:
@@ -309,6 +311,48 @@ def check_breaker(st, cfg):
     tripped = bool(reasons) and not b.get('halted') and bool(cfg.get('live',False))
     return {"tripped":tripped,"reason":" ; ".join(reasons),"dd":dd,"streak":streak}
 
+# STATISTICAL TRIPWIRE (2-Jul): pre-committed alarm floors dari distribusi rolling
+# 2019-2025 sendiri (bukan operasi sinyal) -- lihat CLAUDE.md utk derivasi lengkap.
+# wr41/ret41 = rolling 41-trade window (semua arah); wr30_short = rolling 30-trade
+# window KHUSUS short (short historically lebih lemah dari long). dd_ceiling = dari
+# check_breaker's dd-dari-puncak (closed equity), bukan dihitung ulang di sini.
+TRIPWIRE = dict(wr41_floor=46.3, ret41_floor=-4.7, wr30_short_floor=46.7, dd_ceiling=11.1)
+
+def check_tripwire(st, cfg, breaker_dd=0.0):
+    """2-tier escalation: 1 metrik breach floor historis -> size dipotong 50% (tier1);
+    >=2 metrik breach BARENGAN -> pause total (tier2, sama efeknya dgn circuit-breaker
+    DD/streak). Rasional 2-tier: 1 metrik nyimpang bisa noise biasa (tiap metrik individual
+    MEMANG pernah tembus floornya sendiri di histori 6-tahun -- itu definisi floor), tapi
+    >=2 metrik SEKALIGUS di luar apapun yg pernah kejadian bareng secara historis = sinyal
+    kuat ada yg berubah (regime shift/bug), bukan varians normal -- circuit-breaker DD/streak
+    yang sudah ada baru trip di 15%/6x-beruntun (jauh lebih longgar), tripwire ini nangkep
+    anomali lebih dini via bentuk distribusi, bukan cuma titik ekstrem.
+    Butuh histori trade cukup (>=41 utk wr41/ret41, >=30 short utk wr30_short) -- sebelum itu,
+    metrik terkait di-skip (bukan auto-tripped kosongan)."""
+    sl=st['v20']; hist=sl.get('hist',[])
+    tw=st.setdefault('tripwire', {"tier":0,"reasons":[],"size_mult":1.0})
+    tc=cfg.get('tripwire',{}) or {}
+    if not tc.get('enabled',True):
+        tw.update(tier=0,reasons=[],size_mult=1.0); return tw
+    reasons=[]
+    if len(hist)>=41:
+        last41=hist[-41:]
+        wr41=sum(1 for x in last41 if x['net']>0)/41*100
+        eq=1.0
+        for x in last41: eq*=(1+x['net'])
+        ret41=(eq-1)*100
+        if wr41<TRIPWIRE['wr41_floor']: reasons.append(f"WR-41 {wr41:.1f}% < floor {TRIPWIRE['wr41_floor']}%")
+        if ret41<TRIPWIRE['ret41_floor']: reasons.append(f"Return-41 {ret41:.1f}% < floor {TRIPWIRE['ret41_floor']}%")
+    shorts=[x for x in hist if x['dir']<0]
+    if len(shorts)>=30:
+        last30s=shorts[-30:]
+        wr30s=sum(1 for x in last30s if x['net']>0)/30*100
+        if wr30s<TRIPWIRE['wr30_short_floor']: reasons.append(f"WR-30-short {wr30s:.1f}% < floor {TRIPWIRE['wr30_short_floor']}%")
+    if breaker_dd>TRIPWIRE['dd_ceiling']: reasons.append(f"DD {breaker_dd:.1f}% > ceiling {TRIPWIRE['dd_ceiling']}%")
+    tier = 2 if len(reasons)>=2 else (1 if len(reasons)==1 else 0)
+    tw['tier']=tier; tw['reasons']=reasons; tw['size_mult']=(0.5 if tier==1 else 1.0)
+    return tw
+
 SECRETS_F = os.path.join(HERE, "bot_secrets.json")
 def load_keys(net="mainnet"):
     """API key per-net dari bot_secrets.json. Format baru:
@@ -374,6 +418,7 @@ def sync_live(label, desired_sign, price):
     sym = cfg.get("symbol","BTC/USDT:USDT")
     lev = max(1, min(1, int(cfg.get("leverage",1))))       # M3: clamp <=1x DI EKSEKUSI (config = untrusted)
     size_usd = min(float(cfg.get("size_usd",120)), float(cfg.get("max_size_usd",2000)))   # M3: cap notional
+    size_usd *= float(cfg.get("tripwire_size_mult",1.0))    # tripwire tier1: potong 50% otomatis (check_tripwire)
     net = cfg.get("net","testnet")                         # switch 2: testnet (default aman) / mainnet
     tag = "MAINNET" if net=="mainnet" else "TESTNET"
     tgt_qty = round(size_usd*lev/price, 3)                 # BTC presisi 0.001

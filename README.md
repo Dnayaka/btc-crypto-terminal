@@ -24,6 +24,21 @@ Data flow: backend = thin adapters over Binance/news/calendar APIs → JSON. Fro
 - **Macro/geopolitical news panel**: war/sanctions/oil-supply-shock headlines that don't come from a scheduled calendar.
 - Multi-user auth, rate-limiting, DDoS-resistant caching (load-tested to 1000 concurrent requests, 0 errors).
 
+## Quick start
+
+```bash
+git clone <this-repo>
+cd btc-terminal
+./setup.sh
+```
+
+That installs Python deps, creates safe-default config (`live: false`, paper mode),
+fetches BTC/ETH/SOL historical data, registers systemd services + cron jobs, and
+prints an admin login + next steps. It's idempotent — re-run it any time, it only
+fills in what's missing and never overwrites config you've already customized. See
+"What `setup.sh` does" below for the full list of steps, and "Setup" for what to do
+by hand if you'd rather not run it.
+
 ## Running it
 
 ```bash
@@ -32,7 +47,7 @@ python3 config_server.py   # public :8788
 python3 config_admin.py    # private :8789 (localhost only)
 ```
 
-Or via systemd (auto-start on boot):
+Or via systemd (installed automatically by `setup.sh`, or manually — see below):
 ```bash
 systemctl --user restart bot-config   # public terminal :8788
 systemctl --user restart bot-admin    # private admin :8789
@@ -41,34 +56,42 @@ journalctl --user -u bot-config -f    # tail logs
 crontab -l                            # see all scheduled jobs
 ```
 
-Cron jobs regenerate strategy data every 5 minutes and run the live bot every 15 minutes. **All cron entries must `cd` into this directory first** — scripts use relative file paths; this has been a recurring source of silent failures during development.
+Cron jobs regenerate strategy data every 5 minutes and run the live bot every 15 minutes. **All cron entries must `cd` into this directory first** — scripts use relative file paths; this has been a recurring source of silent failures during development (`setup.sh` handles this for you).
 
-## Setup
+## What `setup.sh` does
+
+1. `pip install -r requirements.txt` (falls back to `--break-system-packages` on externally-managed Python installs).
+2. Creates `bot_config.json` / `bot_secrets.json` / `.terminal_pass` from the `.example` templates if they don't exist yet — never overwrites existing ones.
+3. Bootstraps one admin account if `users.json` is empty, and prints the password (shown once).
+4. Fetches full BTC/ETH/SOL 15m history (`fetch_hist.py`) if the CSVs are missing, then generates the first `{sym}_v20.json` strategy/backtest data.
+5. Writes `~/.config/systemd/user/{bot-config,bot-admin}.service` with the correct absolute path for wherever you cloned the repo, enables them, and turns on `loginctl linger` so they survive logout/reboot.
+6. If Node.js is present: `npm install` in `wa-daemon/` and registers `wa-daemon.service` (WhatsApp alerts are optional and stay off until you pair the daemon and flip `wa_enabled` in the admin panel).
+7. Installs the cron schedule, tagged with a marker comment so re-running the script replaces the block cleanly instead of duplicating it. Any other cron jobs you already had are left untouched.
+
+## Setup (manual, if you'd rather not run `setup.sh`)
 
 Copy the example files and fill in your own values (nothing sensitive is committed — see `.gitignore`):
 
 ```bash
-cp bot_secrets.example.json bot_secrets.json   # exchange + Gemini API keys
+cp bot_secrets.example.json bot_secrets.json   # exchange + Gemini API keys + WhatsApp number
 cp bot_config.example.json bot_config.json     # live/paper toggle, size, leverage
 ```
 
 Default is `live: false` (paper trading, zero real orders). Read `CLAUDE.md` (parent `dynamic_rsi/` folder) before touching strategy/execution logic — it documents every validated/rejected variant and the reasoning behind current parameters.
 
-Dependencies: `pip install ccxt requests pandas numpy`; for WhatsApp notifications, `cd wa-daemon && npm install`.
+Dependencies: `pip install -r requirements.txt`; for WhatsApp notifications, `cd wa-daemon && npm install`.
 
 ## Deploying to a VPS
 
-1. Copy this folder over, install dependencies (above).
-2. Update the hardcoded base path (`/home/dnayaka/Documents/dynamic_rsi/btc-terminal`) across `.py`/`.sh` files and `wa-daemon/` to your VPS path.
-3. Set up systemd services (or pm2) + cron, mirroring the local setup.
-4. Expose the public terminal port if desired; **admin must stay bound to localhost** — put it behind an SSH tunnel if you need remote access to it.
+1. Copy this folder over, then run `./setup.sh` — it derives every path from wherever the repo lives, so there's nothing to hand-edit.
+2. Expose the public terminal port if desired; **admin must stay bound to localhost** — put it behind an SSH tunnel if you need remote access to it.
 
 ## Roadmap / known gaps (for whoever picks this up next, including future-me)
 
 - **Pine-Script import**: no general Pine→JS converter exists yet. A full one (arbitrary Pine syntax) is a large undertaking — Pine has its own series/state semantics that don't map 1:1 to plain JS. A *narrower* version — recognizing our own strategy template (breakout + pullback + regime-TP conventions used across `version20`–`version25` in the companion strategy repo) and rendering it on this dashboard — is realistic scope; a general-purpose TradingView-replacement importer is not.
-- **Configurable equity/leverage/drawdown simulator on `/performa`**: not yet built. The trade-level data (`{sym}_v20.json` → `trades[]`) already has everything needed (entry/exit/net-return per trade) to let a user punch in starting equity + leverage and see a scaled equity curve + realistic liquidation-adjusted drawdown, without re-running the backtest engine.
-- **Buy-and-hold comparison overlay**: not yet built. Straightforward — same OHLC data already fetched for the chart, compute `equity[t] = price[t]/price[0]` and plot alongside the strategy curve.
 - SOL's v20 is shipped with an explicit low-confidence warning in the UI — momentum-breakout historically transfers poorly to SOL (see `CLAUDE.md` in the parent `dynamic_rsi/` folder for the full multi-ticker research).
+
+Already built (previously listed here as gaps, now shipped): configurable equity/leverage/drawdown simulator and buy-and-hold comparison overlay, both on `/performa`.
 
 ## Safety notes
 

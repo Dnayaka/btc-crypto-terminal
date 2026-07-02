@@ -204,3 +204,20 @@ chromium --headless=new --no-sandbox --window-size=1200,2200 --virtual-time-budg
 - **HANYA BTC.** ETH/SOL **TIDAK** dapat strategi/marker/box ("jangan dulu") — `loadChart` non-BTC: `candleS.setMarkers([]);boxes.set([])`. TIAP ticker+TF punya data sendiri (BTC pakai btc_v20 utk 15m + klines TF lain; ETH/SOL klines polos).
 - Chart live-sync: `tickChart` 3s update bar-terakhir via `.update()` (no redraw), **zoom kepertahanin** (save/restore `getVisibleRange`), `chartReady` guard anti-race, `setView` deferred 60ms (fix container-timing). `refreshV20` 60s re-apply marker/box.
 - Nambah strategi ticker lain nanti: bikin `{ticker}15m.py` → `{ticker}_v20.json` + endpoint, mirror pola BTC. JANGAN apply v20 BTC ke ticker lain.
+
+---
+
+## 10. STATISTICAL TRIPWIRE (2-Jul) — proteksi tambahan di atas circuit-breaker
+
+**Beda dari circuit-breaker yang sudah ada** (§ arahan 28-Jun poin 8, `check_breaker` = titik-ekstrem tunggal DD≥15%/loss-streak≥6): tripwire ini bereaksi ke **bentuk distribusi rolling**, jauh lebih sensitif — dirancang nangkep anomali lebih dini, sebelum kondisi separah breaker.
+
+- **4 metrik + floor/ceiling** (`TRIPWIRE` dict di `bot_v20_funding.py`), diturunkan dari replay `eng.run()` (558 trade futures 2019-2025, kode identik production) DAN cross-check TradingView list-of-trades asli (733 trade 2017-2026, beberapa basis position-sizing dicoba: compounding penuh, fixed-notional, 10%-of-equity — semua diverifikasi konsisten arah meski beda skala persis):
+  - Rolling-41 WR (semua trade) floor **46.3%** (historical min sendiri ≈48.8%)
+  - Rolling-41 return compounded floor **−4.7%** (TV-data cross-check ≈−2.9% s/d −8.8% tergantung basis sizing — −4.7% ada di tengah rentang itu, TIDAK reproduksi exact dari satu model tunggal, diterima sbg reasonable)
+  - Rolling-30 WR SHORT-only floor **46.7%** (exact match replay python)
+  - DD-dari-puncak (closed equity, reuse `check_breaker`'s dd) ceiling **11.1%** (near-exact match, replay 10.97%)
+- **2-tier**: 1 metrik breach → `size_mult=0.5` (potong size order berikutnya 50%, via `sync_live`'s `size_usd *= cfg['tripwire_size_mult']`); **≥2 metrik breach BARENGAN** → pause total (flatten+`live=false`+`halted=true`, sama efek dgn circuit-breaker, WA alert). Validasi replay historis: **14× tier1** (semua dari WR-30-short nyentuh floor-nya, klaster Feb–Jun 2024), **0× tier2** (belum pernah 2 metrik breach bareng dlm 6 tahun — koheren karena tiap floor emang titik-ekstrem masing2 metrik).
+- **State**: `new_sleeve()['hist']` = list `{dir,net}` per trade closed, cap 100 entri (append di `step_v20()` LONG & SHORT exit branch). Butuh histori cukup dulu (≥41 utk wr41/ret41, ≥30 short utk wr30_short) sebelum metrik terkait dievaluasi — state lama (pra-fitur ini) mulai kosong `hist=[]`, tripwire baru aktif prospektif seiring trade baru terkumpul, TIDAK retroaktif.
+- **Config**: `bot_config.json` `"tripwire":{"enabled":true}` (toggle on/off, thresholds sendiri HARDCODE di kode — riset-derived, bukan knob operasional casual) + `"tripwire_size_mult"` (1.0 normal, 0.5 saat tier1, auto-reset pas metrik pulih). `bot_v22.py --resume` reset breaker DAN tripwire sekaligus.
+- **Admin UI**: `/api/status` (`config_admin.py`) expose `breaker`+`tripwire` (exclude raw `hist` dari payload, cuma dipakai server-side). Panel Position tampilkan banner merah (halted/tier2) atau kuning (tier1) kalau ada breach.
+- **Fungsi**: `check_tripwire(st, cfg, breaker_dd)` di `bot_v20_funding.py`, dipanggil `bot_v22.py:do_once()` SETELAH `check_breaker` (breaker dulu, baru tripwire — breaker lebih ekstrem/prioritas). Derivasi angka: scratchpad sesi `tripwire_calc.py` (python replay) + `tv_tripwire.py` (parse TV CSV export, termasuk reconcile 10%-equity-sizing model yg cocok persis `Cumulative PnL%` TV — 38.593 vs 38.59 reported).

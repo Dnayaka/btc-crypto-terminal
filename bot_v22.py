@@ -18,8 +18,8 @@ import os, json, argparse
 import numpy as np, pandas as pd
 from eng import DEF
 from bot_v20_funding import (build_v20_context, step_v20, new_sleeve, fetch_klines,
-                             alert, load_config, sync_live, BAR_MS, check_breaker, set_config,
-                             log_run, log_err)
+                             alert, load_config, sync_live, BAR_MS, check_breaker, check_tripwire,
+                             set_config, log_run, log_err)
 
 HERE    = "/home/dnayaka/Documents/dynamic_rsi/btc-terminal"
 CAPITAL = float(os.environ.get("BOT_CAPITAL", 1000.0))
@@ -88,11 +88,38 @@ def do_once():
         try:
             from notify_wa import send_whatsapp; send_whatsapp("🛑 "+hmsg)
         except Exception: pass
-    elif cfg.get('sleeves',{}).get('v20',True):
-        # EKSEKUSI v20: rekonsiliasi ke posisi yg diinginkan (truth = posisi exchange)
-        desired = sl['pos'] if sl['pos']!=0 else sl['pending']   # collapse pending -> entry same-run (fix timing)
-        msg=sync_live("v20", desired, price)
-        if msg: ev.append(msg)
+    else:
+        # STATISTICAL TRIPWIRE: cek SETELAH circuit-breaker (breaker = titik-ekstrem tunggal,
+        # tripwire = bentuk-distribusi -- 2 metrik nyimpang bareng = anomali lebih dini).
+        tw=check_tripwire(st, cfg, breaker_dd=br['dd'])
+        if tw['tier']>=2:
+            # >=2 metrik nyimpang bareng -> pause (skip eksekusi run ini, walau paper --
+            # biar observasi paper meaningful: "kalau ini live, di sini bakal berhenti").
+            already_halted = st.get('breaker',{}).get('halted')
+            if cfg.get('live',False) and not already_halted:
+                hflat=sync_live("v20-TRIPWIRE-HALT", 0, price)
+                st.setdefault('breaker',{})['halted']=True
+                st['breaker']['reason']="TRIPWIRE: "+" ; ".join(tw['reasons'])
+                set_config(live=False, halted=True, halt_reason=st['breaker']['reason'], tripwire_size_mult=1.0)
+                hmsg=f"🛑 TRIPWIRE PAUSE ({len(tw['reasons'])} metrik breach bareng): {' ; '.join(tw['reasons'])} — LIVE OFF. Resume: bot_v22.py --resume"
+                ev.append(hmsg)
+                if hflat: ev.append("   flatten: "+hflat)
+                try:
+                    from notify_wa import send_whatsapp; send_whatsapp("🛑 "+hmsg)
+                except Exception: pass
+            else:
+                ev.append(f"ℹ️ TRIPWIRE tier2 ({'paper, no halt' if not cfg.get('live',False) else 'sudah halted'}): {' ; '.join(tw['reasons'])}")
+        else:
+            new_mult = tw['size_mult']
+            if abs(new_mult-float(cfg.get('tripwire_size_mult',1.0)))>1e-6:
+                set_config(tripwire_size_mult=new_mult)
+                tag = "⚠️ TRIPWIRE tier1" if tw['tier']==1 else "✅ TRIPWIRE reset"
+                ev.append(f"{tag}: {' ; '.join(tw['reasons']) or 'metrik pulih ke normal'} -> size x{new_mult}")
+            if cfg.get('sleeves',{}).get('v20',True):
+                # EKSEKUSI v20: rekonsiliasi ke posisi yg diinginkan (truth = posisi exchange)
+                desired = sl['pos'] if sl['pos']!=0 else sl['pending']   # collapse pending -> entry same-run (fix timing)
+                msg=sync_live("v20", desired, price)
+                if msg: ev.append(msg)
     if ev: alert(ev)
     else:  print("  (tidak ada aksi bar ini)")
     st["last_open_time"]=last_ot; save_state(st); show_status(st)
@@ -115,8 +142,9 @@ if __name__=="__main__":
     if a.reset: save_state(dict(v20=new_sleeve(),last_open_time=0)); print("state v22 direset.")
     elif a.resume:
         st=load_state(); st.setdefault('breaker',{})['halted']=False; st['breaker']['reason']=""
-        st['v20']['loss_streak']=0; save_state(st); set_config(halted=False)
-        print("breaker di-reset. LIVE tetap OFF — nyalakan manual via admin kalau yakin.")
+        st['v20']['loss_streak']=0; st['tripwire']={"tier":0,"reasons":[],"size_mult":1.0}
+        save_state(st); set_config(halted=False, tripwire_size_mult=1.0)
+        print("breaker+tripwire di-reset. LIVE tetap OFF — nyalakan manual via admin kalau yakin.")
     elif a.selftest: selftest()
     elif a.status: show_status()
     elif a.once:

@@ -364,7 +364,7 @@ input.inp{width:100%;background:var(--bg);border:1px solid var(--line);border-ra
  <div class=tbig><button class="tbtn buy" onclick="trade('buy')">▲ Long<span class=s>Market Buy</span></button><button class="tbtn sell" onclick="trade('sell')">▼ Short<span class=s>Market Sell</span></button></div>
  <div class=saved id=tmsg style="color:var(--dim);font-size:12px;margin-top:12px">size dari config di atas</div>
 </div>
-<div class=panel><h3>Position</h3><div id=pos></div></div>
+<div class=panel><h3>Position</h3><div id=pos></div><div id=twbox></div></div>
 <div class=panel><h3>AI · Gemini (second opinion)</h3>
  <div class=keystat id=gks>—</div>
  <button class="btn ghost" onclick=secop() id=sobtn>🤖 Minta Second Opinion</button>
@@ -406,7 +406,13 @@ function toast(m,t){const e=document.createElement('div');e.className='t '+(t||'
 function trade(side){if(tradeBusy)return;const sz=$('size').value,main=$('net').checked;pend=side;$('mbig').innerHTML='<span style="color:'+(side=='buy'?'var(--up)':'var(--down)')+'">'+(side=='buy'?'▲ LONG':'▼ SHORT')+' ~$'+sz+'</span>';$('modalwarn').innerHTML=main?'⚠️ <b style=color:var(--down)>UANG ASLI</b> di Binance MAINNET.':'TESTNET (uang palsu) — aman buat tes.';$('mok').className='ok '+side;$('mok').textContent='Confirm '+(side=='buy'?'LONG':'SHORT');$('modal').classList.add('show')}
 function closeM(){$('modal').classList.remove('show');pend=null}
 function doTrade(){if(tradeBusy)return;const side=pend;closeM();if(!side)return;tradeBusy=true;$('tmsg').textContent='⟳ sending…';$('tmsg').style.color='var(--amber)';toast('Order '+side.toUpperCase()+' dikirim…','');fetch('/api/trade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({side})}).then(r=>r.json()).then(d=>{$('tmsg').textContent=d.msg;$('tmsg').style.color=d.ok?'var(--up)':'var(--down)';toast(d.msg,d.ok?'ok':'err');tradeBusy=false;setTimeout(pos,1500)}).catch(_=>{tradeBusy=false})}
-function pos(){fetch('/api/status').then(r=>r.json()).then(d=>{const s=d.sleeves.v20||{};const c=s.pos>0?'long':s.pos<0?'short':'flat';const t=s.pos>0?'LONG':s.pos<0?'SHORT':'FLAT';$('pos').innerHTML='<div class=pos><span class=nm>v20 <b class='+c+'>'+t+'</b>'+(s.pos?' @'+Math.round(s.entry):'')+'</span><span style=color:var(--dim)>×'+(s.equity||1).toFixed(3)+' · '+(s.ntr||0)+'t</span></div>'})}
+function pos(){fetch('/api/status').then(r=>r.json()).then(d=>{const s=d.sleeves.v20||{};const c=s.pos>0?'long':s.pos<0?'short':'flat';const t=s.pos>0?'LONG':s.pos<0?'SHORT':'FLAT';$('pos').innerHTML='<div class=pos><span class=nm>v20 <b class='+c+'>'+t+'</b>'+(s.pos?' @'+Math.round(s.entry):'')+'</span><span style=color:var(--dim)>×'+(s.equity||1).toFixed(3)+' · '+(s.ntr||0)+'t</span></div>';
+ const br=d.breaker||{},tw=d.tripwire||{tier:0,reasons:[]};
+ let html='';
+ if(br.halted) html+='<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(255,80,80,.12);color:var(--down);font-size:11px">🛑 HALTED — '+esc(br.reason||'?')+' — resume manual via bot_v22.py --resume</div>';
+ else if(tw.tier>=2) html+='<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(255,80,80,.12);color:var(--down);font-size:11px">🛑 tripwire tier2 (paper, belum halt): '+esc((tw.reasons||[]).join(' ; '))+'</div>';
+ else if(tw.tier==1) html+='<div style="margin-top:6px;padding:6px 8px;border-radius:6px;background:rgba(255,180,50,.12);color:var(--amber);font-size:11px">⚠️ tripwire tier1 — size ×'+(tw.size_mult||.5)+': '+esc((tw.reasons||[]).join(' ; '))+'</div>';
+ $('twbox').innerHTML=html})}
 function refreshStocks(){$('stmsg').textContent='⟳ menjalankan…';$('stmsg').style.color='var(--amber)';toast('Refresh saham dimulai…','');fetch('/api/refresh_stocks',{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json()).then(d=>{$('stmsg').textContent=d.msg;$('stmsg').style.color=d.ok?'var(--up)':'var(--down)';toast(d.ok?'Refresh saham jalan':'gagal',d.ok?'ok':'err')}).catch(_=>{$('stmsg').textContent='gagal';})}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function loadUsers(){fetch('/api/users').then(r=>r.json()).then(d=>{const us=d.users||[];if(!us.length){$('ulist').textContent='belum ada user';return}
@@ -439,9 +445,12 @@ class H(BaseHTTPRequestHandler):
             except: pass
             return self._s(200,"application/json",json.dumps(d))
         if path=="/api/status":
-            d={"sleeves":{}}
+            d={"sleeves":{},"breaker":{},"tripwire":{}}
             try:
-                st=json.load(open(STATE)); d["sleeves"]["v20"]=st.get("v20",{})
+                st=json.load(open(STATE))
+                v=st.get("v20",{}); d["sleeves"]["v20"]={k:x for k,x in v.items() if k!="hist"}
+                d["breaker"]=st.get("breaker",{})
+                d["tripwire"]=st.get("tripwire",{"tier":0,"reasons":[],"size_mult":1.0})
             except: pass
             return self._s(200,"application/json",json.dumps(d))
         if path=="/api/secrets":
