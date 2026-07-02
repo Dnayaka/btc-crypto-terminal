@@ -2,6 +2,17 @@
 
 A self-built trading terminal: live chart + custom momentum strategy engine + liquidity visualization + AI commentary + economic calendar, for BTC/ETH/SOL perpetuals. Built as a Bloomberg-terminal-style single-page dashboard (Python stdlib `http.server`, no framework), backed by a Python bot that runs the same strategy logic live. Self-contained and portable (deployable to any VPS).
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Main terminal](screenshots/01-terminal-main.png) | ![Trading journal + PnL calendar](screenshots/04-journal-pnlcard-calendar.png) |
+| Live chart with the v20 strategy overlaid, liquidity panels, market snapshot | Trading journal: total PnL, win rate, month-by-month PnL calendar |
+| ![Shareable PnL card](screenshots/05-pnl-share-card.png) | ![Full terminal, all panels](screenshots/02-terminal-full.png) |
+| Auto-generated "flex card" per trade, downloadable as PNG | Full page — liquidity, AI read, DXY, economic calendar, macro news, news wire |
+
+*(Numbers shown are synthetic demo data for illustration — not a real track record. See [Safety notes](#safety-notes) below.)*
+
 ## Architecture (security-critical split)
 
 | Component | Port | Bind | Purpose |
@@ -22,6 +33,7 @@ Data flow: backend = thin adapters over Binance/news/calendar APIs → JSON. Fro
 - **AI commentary** (Gemini): market read, Fed-event hawkish/dovish summaries cross-checked against DXY/BTC-dominance, all analysis-only — never wired into execution.
 - **Economic calendar**: US high-impact events with plain-language "what happens if actual beats/misses forecast" explanations; actual results pulled from BLS (+ ADP via news extraction) as they release.
 - **Macro/geopolitical news panel**: war/sanctions/oil-supply-shock headlines that don't come from a scheduled calendar.
+- **`/journal`**: per-user trading journal — notes + compressed screenshots, editable, custom date/time, auto-or-manual PnL (entry/exit/leverage → computed live, or override by hand), a monthly PnL calendar heatmap, and a downloadable share card per trade. Private per account; nothing here is visible to other logged-in users.
 - Multi-user auth, rate-limiting, DDoS-resistant caching (load-tested to 1000 concurrent requests, 0 errors).
 
 ## Quick start
