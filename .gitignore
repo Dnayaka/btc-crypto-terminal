@@ -16,6 +16,7 @@ ob_state.json
 paper_ob_state.json
 journal.json
 journal_imgs/
+alerts.json
 
 # ---- runtime-mutable state / logs ----
 bot_config.json

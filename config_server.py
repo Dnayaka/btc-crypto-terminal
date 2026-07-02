@@ -61,6 +61,19 @@ def _detect_img(raw):
     if raw[:8]==b"\x89PNG\r\n\x1a\n": return "png"
     if raw[:4]==b"RIFF" and raw[8:12]==b"WEBP": return "webp"
     return None
+# ===== Price/RSI alerts (per-user, in-web only -- dicek client-side selama tab kebuka, TANPA WA/push) =====
+ALERTS_F=os.path.join(_JHERE,"alerts.json")
+ALERTS_CAP=30
+_ALK=threading.Lock()
+def _aload():
+    try:
+        with open(ALERTS_F) as f: return json.load(f)
+    except Exception: return {}
+def _asave(d):
+    tmp=ALERTS_F+".tmp"
+    fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+    with os.fdopen(fd,"w") as f: json.dump(d,f)
+    os.replace(tmp, ALERTS_F)
 S=requests.Session(); S.headers.update({'User-Agent':'Mozilla/5.0'}); FAPI="https://fapi.binance.com"
 import time as _time
 _DFAIL=[0.0]; _DFAIL_LK=threading.Lock()   # ts terakhir direct gagal -> skip direct 5mnt
@@ -426,6 +439,19 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
    <div class="gauge rv d5"><div class=g-l>Long / Short</div><div class=g-v id=ls style="font-size:16px">—</div></div>
    <div class="gauge rv d5"><div class=g-l>BTC Dominance</div><div class=g-v id=dom style="font-size:18px">—</div><div class=fngbar><i id=dombar></i></div></div>
   </div>
+ </section>
+ <section class="panel rv d2" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Alert · Price/RSI (web — selama tab kebuka)</span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <select id=alSym style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px"><option value=BTCUSDT>BTC</option><option value=ETHUSDT>ETH</option><option value=SOLUSDT>SOL</option></select>
+   <select id=alType style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px"><option value=price>Harga</option><option value=rsi>RSI (15m)</option></select>
+   <select id=alOp style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px"><option value=">=">≥</option><option value="<=">≤</option></select>
+   <input id=alVal type=number step=any placeholder="nilai" style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px">
+   <button onclick=addAlert() style="padding:9px 16px;font-family:var(--mono);font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:6px;cursor:pointer;font-size:11px">+ Tambah</button>
+  </div>
+  <div id=alMsg style="font-size:10.5px;color:var(--dim);margin-bottom:6px"></div>
+  <div id=alList style="display:flex;flex-direction:column;gap:6px">memuat…</div>
+  <p style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">⚠️ Alert ini dicek di browser (bukan WhatsApp/push) — cuma jalan selama tab situs ini terbuka. Sekali kena, otomatis nonaktif (nggak spam berulang).</p>
  </section>
  <div class=grid>
   <section class="panel span2 rv d2">
@@ -943,8 +969,61 @@ initChart();loadMetrics();loadLiq();loadStats();loadNews();loadCalendar();loadMa
   const m=document.createElement('span');m.className='mini';m.title='sembunyikan / tampilkan';m.textContent=p.classList.contains('collapsed')?'+':'–';
   m.onclick=e=>{e.stopPropagation();p.classList.toggle('collapsed');const c=p.classList.contains('collapsed');m.textContent=c?'+':'–';let s;try{s=JSON.parse(localStorage.getItem('panelMin'))||{};}catch(_){s={};}s[ti]=c;localStorage.setItem('panelMin',JSON.stringify(s));};
   h.appendChild(m);});})();
+function alToast(msg,ok){const t=document.createElement('div');t.style.cssText='position:fixed;top:16px;right:16px;z-index:400;background:rgba(10,9,6,.96);border:1px solid '+(ok?'var(--amber)':'var(--line)')+';border-radius:8px;padding:12px 16px;font-size:12.5px;color:var(--ink);box-shadow:0 12px 34px rgba(0,0,0,.6);max-width:300px;animation:boot .3s ease-out';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(()=>t.remove(),400);},6000);}
+let alAlerts=[];
+function loadAlerts(){fetch('/api/alerts').then(r=>r.json()).then(d=>{alAlerts=d.alerts||[];renderAlerts();}).catch(_=>{});}
+function renderAlerts(){
+ const box=$('alList'); const active=alAlerts.filter(a=>a.active);
+ if(!active.length){box.innerHTML='<div style="font-size:11.5px;color:var(--dim)">belum ada alert aktif</div>';return}
+ box.innerHTML=active.map(a=>{
+  const symN={BTCUSDT:'BTC',ETHUSDT:'ETH',SOLUSDT:'SOL'}[a.sym]||a.sym;
+  const label=(a.type==='rsi'?'RSI(15m)':symN+' harga')+' '+(a.op==='<='?'≤':'≥')+' '+a.value;
+  return '<div style="display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:6px;padding:8px 11px;font-size:12px">'
+   +'<span>🔔 '+_esc(a.type==='rsi'?label:symN+' '+(a.op==='<='?'≤':'≥')+' $'+Number(a.value).toLocaleString())+'</span>'
+   +'<button onclick="delAlert(\''+a.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></div>';
+ }).join('');
+}
+function addAlert(){
+ const sym=$('alSym').value, type=$('alType').value, op=$('alOp').value, value=$('alVal').value;
+ if(!value){$('alMsg').textContent='isi nilai dulu';$('alMsg').style.color='var(--down)';return}
+ fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'add',sym,type,op,value})})
+  .then(r=>r.json()).then(d=>{
+   $('alMsg').textContent=d.ok?'✓ alert dibuat':(d.msg||'gagal');$('alMsg').style.color=d.ok?'var(--up)':'var(--down)';
+   if(d.ok){$('alVal').value='';loadAlerts();}
+  }).catch(_=>{$('alMsg').textContent='gagal';$('alMsg').style.color='var(--down)'});
+}
+function delAlert(id){fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'del',id})}).then(_=>loadAlerts());}
+function ackAlert(id){fetch('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'ack',id})}).then(_=>loadAlerts());}
+function checkAlerts(){
+ const active=alAlerts.filter(a=>a.active); if(!active.length)return;
+ const bySym={}; active.forEach(a=>{(bySym[a.sym]=bySym[a.sym]||[]).push(a);});
+ Object.keys(bySym).forEach(s=>{
+  const rules=bySym[s]; const needRsi=rules.some(a=>a.type==='rsi'); const needPrice=rules.some(a=>a.type==='price');
+  const symN={BTCUSDT:'BTC',ETHUSDT:'ETH',SOLUSDT:'SOL'}[s]||s;
+  const jobs=[];
+  if(needPrice) jobs.push(fetch('/api/metrics?sym='+s).then(r=>r.json()).then(m=>({price:m.mark})));
+  if(needRsi) jobs.push(fetch('/api/klines?sym='+s+'&tf=15m').then(r=>r.json()).then(bars=>{const c=(bars||[]).map(b=>b.close);const r14=RSI(c,14);return {rsi:r14.length?r14[r14.length-1]:null};}));
+  Promise.all(jobs).then(results=>{
+   const cur=Object.assign({},...results);
+   rules.forEach(a=>{
+    const v=a.type==='rsi'?cur.rsi:cur.price; if(v==null)return;
+    const hit=a.op==='<='?v<=a.value:v>=a.value;
+    if(hit){
+     const label=a.type==='rsi'?('RSI(15m) '+v.toFixed(1)):(symN+' harga $'+v.toLocaleString());
+     alToast('🔔 '+symN+' alert kena! '+label+' ('+(a.op==='<='?'≤':'≥')+' '+a.value+')',true);
+     if(window.Notification&&Notification.permission==='granted') try{new Notification('🔔 '+symN+' alert',{body:label});}catch(e){}
+     ackAlert(a.id);
+    }
+   });
+  }).catch(_=>{});
+ });
+}
+if(window.Notification&&Notification.permission==='default'){ /* minta izin notif browser cuma kalau user udah pernah interaksi -> minta pas pertama kali klik halaman */
+ document.addEventListener('click',function _once(){Notification.requestPermission();document.removeEventListener('click',_once);},{once:true});
+}
+loadAlerts();
 function poll(fn,ms){setTimeout(function(){fn();setInterval(fn,ms*(0.9+Math.random()*0.2));},Math.random()*ms);}  // jitter: anti cache-stampede 100 user lock-step
-setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);
+setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);
 </script></body></html>"""
 
 ADMINP=HEAD+"<title>DNAYAKA · Admin</title></head><body>"+ATMOS+r"""
@@ -1514,6 +1593,37 @@ class H(BaseHTTPRequestHandler):
                        "exit":_num("exit"),"dir":(-1 if body.get("dir")==-1 or body.get("dir")=="-1" else 1)}
                 mine.append(entry); d[jusr]=mine; _jsave(d)
             return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
+        if path=="/api/alerts":   # per-user, web-only (nol WA/push) -- FE polling ngecek selama tab kebuka
+            if not jusr: return self._s(401,"application/json",'{"ok":false,"msg":"login required"}')
+            try:
+                n=max(0,min(int(self.headers.get("Content-Length",0)),4096)); body=json.loads(self.rfile.read(n)) if n else {}
+            except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"bad body"}')
+            act=body.get("act","add")
+            with _ALK:
+                d=_aload(); mine=d.setdefault(jusr,[])
+                if act=="del":
+                    iid=body.get("id",""); d[jusr]=[a for a in mine if a.get("id")!=iid]; _asave(d)
+                    return self._s(200,"application/json",'{"ok":true}')
+                if act=="ack":   # tandai udah trigger -> nonaktif (one-shot, jangan spam berulang)
+                    iid=body.get("id","")
+                    for a in mine:
+                        if a.get("id")==iid: a["active"]=False; a["triggered_at"]=int(_time.time())
+                    d[jusr]=mine; _asave(d)
+                    return self._s(200,"application/json",'{"ok":true}')
+                # act == add
+                if len(mine)>=ALERTS_CAP:
+                    return self._s(200,"application/json",json.dumps({"ok":False,"msg":f"limit {ALERTS_CAP} alert tercapai, hapus yg lama dulu"}))
+                sym=str(body.get("sym") or "BTCUSDT")[:12]
+                if sym not in ("BTCUSDT","ETHUSDT","SOLUSDT"): return self._s(400,"application/json",'{"ok":false,"msg":"simbol tak dikenal"}')
+                typ="rsi" if body.get("type")=="rsi" else "price"
+                op="<=" if body.get("op")=="<=" else ">="
+                try: value=float(body.get("value"))
+                except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"nilai tak valid"}')
+                if typ=="rsi": value=max(0,min(100,value))
+                alert={"id":_secrets.token_hex(8),"sym":sym,"type":typ,"op":op,"value":value,
+                       "active":True,"created":int(_time.time()),"triggered_at":None}
+                mine.append(alert); d[jusr]=mine; _asave(d)
+            return self._s(200,"application/json",json.dumps({"ok":True,"alert":alert}))
         if not (local or (usr and is_admin(usr)) or self._auth_ok()): return self._need_auth()   # POST admin = localhost ATAU session-admin ATAU service basic-auth
         if path=="/api/users":   # admin: kelola user (signup HANYA di sini)
             try:
@@ -1577,6 +1687,9 @@ class H(BaseHTTPRequestHandler):
         if path=="/api/journal":
             if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
             return self._s(200,"application/json", json.dumps({"entries":_jload().get(jusr,[])}))
+        if path=="/api/alerts":
+            if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
+            return self._s(200,"application/json", json.dumps({"alerts":_aload().get(jusr,[])}))
         if path.startswith("/journal_img/"):
             if not jusr: return self._s(401,"text/plain","login required")
             import re as _re
