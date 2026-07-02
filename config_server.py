@@ -391,8 +391,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13p
 .calmeta{font-size:11px;color:var(--dim);margin-top:2px}.calmeta b{color:var(--ink)}
 .calnote{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5}
 """
+FAVICON_SVG=("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
+ "<rect width='64' height='64' rx='14' fill='#0a0700'/>"
+ "<rect x='2' y='2' width='60' height='60' rx='12' fill='none' stroke='#ff8c1a' stroke-width='3'/>"
+ "<text x='32' y='46' font-family='Arial,Helvetica,sans-serif' font-size='36' font-weight='700' fill='#ff8c1a' text-anchor='middle'>₿</text>"
+ "</svg>")
+import urllib.parse as _fuq
+FAVICON_DATAURI="data:image/svg+xml,"+_fuq.quote(FAVICON_SVG)
 HEAD=("<!doctype html><html lang=en><head><meta charset=utf-8>"
 "<meta name=viewport content='width=device-width,initial-scale=1'>"
+f"<link rel=icon type=image/svg+xml href=\"{FAVICON_DATAURI}\">"
 "<script src='https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'></script>"
 "<link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin>"
 "<link href='https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap' rel=stylesheet>"
@@ -1455,8 +1463,8 @@ class H(BaseHTTPRequestHandler):
         return self._s(404,"application/json",'{"ok":false}')
     def do_GET(self):
         p=urlparse(self.path); path=p.path
-        if path=="/favicon.ico":   # short-circuit (cache 1hr) -> cegah 404 berulang tiap visitor
-            self.send_response(204);self.send_header("Cache-Control","max-age=86400");self.end_headers();return
+        if path=="/favicon.ico":   # browser lama yg ga baca <link rel=icon> minta path ini default -> kasih icon beneran (bukan 204 kosong)
+            return self._s(200,"image/svg+xml",FAVICON_SVG)
         local=self._is_local()
         if not local and not _rl_ok(self._client_ip()): return self._s(429,"application/json",'{"error":"rate limit"}')   # anti-DDoS
         if path=="/login":

@@ -10,19 +10,11 @@ app pixel-for-pixel. Re-run this after `python3 btc15m.py` if you want to refres
 """
 import os, sys, json, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config_server import CSS
+from config_server import HEAD, ATMOS   # reuse verbatim (CSS + favicon + fonts) -- never drift from the real app
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 REPO_URL = "https://github.com/dnayaka/btc-crypto-terminal"
-
-HEAD = ("<!doctype html><html lang=en><head><meta charset=utf-8>"
-        "<meta name=viewport content='width=device-width,initial-scale=1'>"
-        "<script src='https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'></script>"
-        "<link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin>"
-        "<link href='https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap' rel=stylesheet>"
-        "<style>" + CSS + "</style>")
-ATMOS = "<div class=bg></div><div class=scan></div><div class=vig></div><div class=grain></div><div class=boot></div>"
 
 BANNER_CSS = """
 .demoban{position:sticky;top:0;z-index:80;background:linear-gradient(90deg,#1a0f00,#0a0700);border-bottom:1px solid var(--amber);
