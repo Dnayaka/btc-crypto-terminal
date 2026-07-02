@@ -49,5 +49,9 @@ fed_summary.json
 bot_config.example.json.bak
 *.pkl
 *.pid
-graphify-out/
+# graphify-out/graph.json, graph.html, GRAPH_REPORT.md etc ARE committed (dev reference) --
+# just exclude the local extraction cache + machine-specific interpreter/path files.
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
 __pycache__/
