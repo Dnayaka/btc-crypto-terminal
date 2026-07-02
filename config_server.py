@@ -966,13 +966,19 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
    <input id=jsym placeholder="Simbol (opsional, mis. BTC)" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
    <input id=jdt type=datetime-local style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box;color-scheme:dark">
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:8px">
-   <input id=jmodal type=number step=any placeholder="Modal $" title="Modal (USD)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
-   <input id=jentry type=number step=any placeholder="Entry $" title="Harga entry" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
-   <input id=jsl type=number step=any placeholder="SL $ (opsional)" title="Stop loss (opsional)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
-   <input id=jlev type=number step=any placeholder="Leverage x" title="Leverage" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
-   <input id=jpnl type=number step=any placeholder="PnL $ (+/-)" title="Profit/Loss realisasi" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+   <button type=button id=jdirL onclick=setDir(1) style="flex:1;padding:9px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;background:rgba(39,208,122,.14);color:var(--up);border:1px solid var(--up)">▲ LONG</button>
+   <button type=button id=jdirS onclick=setDir(-1) style="flex:1;padding:9px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;background:transparent;color:var(--dim);border:1px solid var(--line)">▼ SHORT</button>
   </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:6px">
+   <input id=jmodal type=number step=any placeholder="Modal $" title="Modal (USD)" oninput=autoPnl() style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jentry type=number step=any placeholder="Entry $" title="Harga entry" oninput=autoPnl() style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jexit type=number step=any placeholder="Exit $ (isi utk auto)" title="Harga exit -- isi ini biar PnL kehitung sendiri" oninput=autoPnl() style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jsl type=number step=any placeholder="SL $ (opsional)" title="Stop loss (opsional)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jlev type=number step=any placeholder="Leverage x" title="Leverage" oninput=autoPnl() style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jpnl type=number step=any placeholder="PnL $ (auto, bisa edit manual)" title="Otomatis dari Modal/Entry/Exit/Lev — boleh ditimpa manual" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+  </div>
+  <div id=jpnlHint style="font-size:10.5px;color:var(--dim);margin-bottom:8px;min-height:13px"></div>
   <textarea id=jnote placeholder="Catatan trade — kenapa entry, apa yang dipelajari, dst." style="width:100%;height:90px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>
   <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
    <label style="font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:9px 12px;cursor:pointer">📷 Screenshot<input id=jfile type=file accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onPick(event)"></label>
@@ -1006,7 +1012,21 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 function pad2(n){return String(n).padStart(2,'0')}
 function epochToLocalInput(ts){const d=new Date(ts*1000);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes())}
 function localInputToEpoch(v){const t=new Date(v).getTime();return isFinite(t)?Math.floor(t/1000):0}
-let pendingImg=null, editingId=null, removeImgFlag=false, lastEntries=[], compressing=false;
+let pendingImg=null, editingId=null, removeImgFlag=false, lastEntries=[], compressing=false, curDir=1;
+function setDir(d){
+ curDir=d;
+ $('jdirL').style.background=d===1?'rgba(39,208,122,.14)':'transparent'; $('jdirL').style.color=d===1?'var(--up)':'var(--dim)'; $('jdirL').style.borderColor=d===1?'var(--up)':'var(--line)';
+ $('jdirS').style.background=d===-1?'rgba(255,69,58,.14)':'transparent'; $('jdirS').style.color=d===-1?'var(--down)':'var(--dim)'; $('jdirS').style.borderColor=d===-1?'var(--down)':'var(--line)';
+ autoPnl();
+}
+function autoPnl(){
+ const modal=parseFloat($('jmodal').value), entry=parseFloat($('jentry').value), exit=parseFloat($('jexit').value), lev=parseFloat($('jlev').value)||1;
+ if(!isFinite(modal)||!isFinite(entry)||!isFinite(exit)||entry===0){$('jpnlHint').textContent=$('jexit').value?'':'';return}
+ const pnl=modal*lev*((exit-entry)/entry)*curDir;
+ $('jpnl').value=Math.round(pnl*100)/100;
+ $('jpnlHint').innerHTML='↳ otomatis dari Modal×Lev×perubahan-harga ('+(curDir===1?'LONG':'SHORT')+') — bisa ditimpa manual kalau beda sama exchange';
+ $('jpnlHint').style.color='var(--dim)';
+}
 const _now0=new Date(); let calYear=_now0.getFullYear(), calMonth=_now0.getMonth();
 const MONTH_NAMES=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 function fmtMoney(n){const s=Math.abs(n)>=1000?Number(n.toFixed(0)).toLocaleString():n.toFixed(2);return (n>=0?'+':'-')+'$'+s}
@@ -1080,9 +1100,9 @@ function onPick(ev){
 function removeImg(){pendingImg=null;removeImgFlag=true;$('jprev').style.display='none';$('jprev').src='';$('jrmimg').style.display='none';$('jfname').textContent='(gambar akan dihapus)'}
 function resetForm(){
  $('jnote').value='';$('jsym').value='';$('jfile').value='';$('jfname').textContent='';$('jprev').style.display='none';$('jprev').src='';
- $('jmodal').value='';$('jentry').value='';$('jsl').value='';$('jlev').value='';$('jpnl').value='';
+ $('jmodal').value='';$('jentry').value='';$('jexit').value='';$('jsl').value='';$('jlev').value='';$('jpnl').value='';$('jpnlHint').textContent='';
  $('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
- pendingImg=null;editingId=null;removeImgFlag=false;
+ pendingImg=null;editingId=null;removeImgFlag=false; setDir(1);
  $('jformtitle').textContent='Entri Baru';$('jcancelWrap').style.display='none';$('jsavebtn').textContent='Simpan Entri';$('jrmimg').style.display='none';
 }
 function cancelEdit(){resetForm()}
@@ -1090,7 +1110,8 @@ function editEntry(id){
  const e=lastEntries.find(x=>x.id===id); if(!e) return;
  editingId=id; pendingImg=null; removeImgFlag=false;
  $('jnote').value=e.note||'';$('jsym').value=e.sym||'';$('jdt').value=epochToLocalInput(e.ts);
- $('jmodal').value=e.modal??'';$('jentry').value=e.entry??'';$('jsl').value=e.sl??'';$('jlev').value=e.lev??'';$('jpnl').value=e.pnl??'';
+ $('jmodal').value=e.modal??'';$('jentry').value=e.entry??'';$('jexit').value=e.exit??'';$('jsl').value=e.sl??'';$('jlev').value=e.lev??'';$('jpnl').value=e.pnl??'';
+ setDir(e.dir===-1?-1:1); $('jpnlHint').textContent='';
  $('jfile').value='';
  if(e.img){$('jprev').src='/journal_img/'+e.img;$('jprev').style.display='block';$('jfname').textContent='(gambar tersimpan — pilih file baru utk ganti)';$('jrmimg').style.display='inline-block'}
  else{$('jprev').style.display='none';$('jfname').textContent='';$('jrmimg').style.display='none'}
@@ -1100,12 +1121,12 @@ function editEntry(id){
 function saveEntry(){
  if(compressing){$('jmsg').textContent='tunggu kompresi gambar selesai…';$('jmsg').style.color='var(--amber)';return}
  const note=$('jnote').value.trim(), sym=$('jsym').value.trim(), ts=localInputToEpoch($('jdt').value);
- const modal=$('jmodal').value, entry=$('jentry').value, sl=$('jsl').value, lev=$('jlev').value, pnl=$('jpnl').value;
+ const modal=$('jmodal').value, entry=$('jentry').value, exit=$('jexit').value, sl=$('jsl').value, lev=$('jlev').value, pnl=$('jpnl').value, dir=curDir;
  if(!note && !pendingImg && !(editingId && !removeImgFlag)){$('jmsg').textContent='isi catatan atau tempel screenshot dulu';$('jmsg').style.color='var(--down)';return}
  $('jmsg').textContent='⟳ menyimpan…';$('jmsg').style.color='var(--amber)';
  const payload=editingId
-  ?{act:'edit',id:editingId,note,sym,ts,modal,entry,sl,lev,pnl,img_b64:pendingImg,remove_img:removeImgFlag}
-  :{act:'add',note,sym,ts,modal,entry,sl,lev,pnl,img_b64:pendingImg};
+  ?{act:'edit',id:editingId,note,sym,ts,modal,entry,exit,sl,lev,pnl,dir,img_b64:pendingImg,remove_img:removeImgFlag}
+  :{act:'add',note,sym,ts,modal,entry,exit,sl,lev,pnl,dir,img_b64:pendingImg};
  fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(r=>r.json()).then(d=>{
    $('jmsg').textContent=d.ok?'✓ tersimpan':(d.msg||'gagal');$('jmsg').style.color=d.ok?'var(--up)':'var(--down)';
@@ -1128,8 +1149,10 @@ function loadJournal(){
    const symtag=e.sym?('<span class=tag style="margin-right:8px">'+esc(e.sym)+'</span>'):'';
    const stat=[];
    if(e.pnl!=null)stat.push('<span>PnL <b style="color:'+(e.pnl>=0?'var(--up)':'var(--down)')+'">'+(e.pnl>=0?'+':'')+'$'+Number(e.pnl).toLocaleString()+'</b></span>');
+   if(e.dir!=null)stat.push('<span><b style="color:'+(e.dir===-1?'var(--down)':'var(--up)')+'">'+(e.dir===-1?'▼ SHORT':'▲ LONG')+'</b></span>');
    if(e.modal!=null)stat.push('<span>Modal <b style="color:var(--ink)">$'+Number(e.modal).toLocaleString()+'</b></span>');
    if(e.entry!=null)stat.push('<span>Entry <b style="color:var(--ink)">$'+Number(e.entry).toLocaleString()+'</b></span>');
+   if(e.exit!=null)stat.push('<span>Exit <b style="color:var(--ink)">$'+Number(e.exit).toLocaleString()+'</b></span>');
    if(e.sl!=null)stat.push('<span>SL <b style="color:var(--down)">$'+Number(e.sl).toLocaleString()+'</b></span>');
    if(e.lev!=null)stat.push('<span>Lev <b style="color:var(--amber)">'+Number(e.lev)+'x</b></span>');
    const statline=stat.length?('<div style="font-size:11.5px;color:var(--dim);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">'+stat.join('')+'</div>'):'';
@@ -1270,7 +1293,7 @@ class H(BaseHTTPRequestHandler):
                     if not tgt: return self._s(404,"application/json",'{"ok":false,"msg":"entri tak ditemukan"}')
                     tgt["note"]=str(body.get("note") or "")[:2000]; tgt["sym"]=str(body.get("sym") or "")[:20]
                     tgt["ts"]=_mkts()
-                    tgt["modal"]=_num("modal"); tgt["entry"]=_num("entry"); tgt["sl"]=_num("sl"); tgt["lev"]=_num("lev"); tgt["pnl"]=_num("pnl")
+                    tgt["modal"]=_num("modal"); tgt["entry"]=_num("entry"); tgt["sl"]=_num("sl"); tgt["lev"]=_num("lev"); tgt["pnl"]=_num("pnl"); tgt["exit"]=_num("exit"); tgt["dir"]=(-1 if body.get("dir")==-1 or body.get("dir")=="-1" else 1)
                     if body.get("remove_img"):
                         if tgt.get("img"):
                             try: os.remove(os.path.join(JIMG_DIR,tgt["img"]))
@@ -1295,7 +1318,8 @@ class H(BaseHTTPRequestHandler):
                     img_id,err=_saveimg(b64)
                     if err: return err
                 entry={"id":_secrets.token_hex(8),"ts":_mkts(),"note":note,"sym":sym,"img":img_id,
-                       "modal":_num("modal"),"entry":_num("entry"),"sl":_num("sl"),"lev":_num("lev"),"pnl":_num("pnl")}
+                       "modal":_num("modal"),"entry":_num("entry"),"sl":_num("sl"),"lev":_num("lev"),"pnl":_num("pnl"),
+                       "exit":_num("exit"),"dir":(-1 if body.get("dir")==-1 or body.get("dir")=="-1" else 1)}
                 mine.append(entry); d[jusr]=mine; _jsave(d)
             return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
         if not (local or (usr and is_admin(usr)) or self._auth_ok()): return self._need_auth()   # POST admin = localhost ATAU session-admin ATAU service basic-auth
