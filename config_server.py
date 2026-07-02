@@ -1006,6 +1006,13 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
  </section>
  <footer class=foot><span>Journal · privat per-akun</span><span id=ts>—</span></footer>
 </div>
+<div id=cardModal style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.82);align-items:center;justify-content:center;padding:16px;flex-direction:column;gap:14px">
+ <canvas id=shareCanvas style="max-width:100%;max-height:70vh;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.7)"></canvas>
+ <div style="display:flex;gap:10px">
+  <button onclick=downloadCard() style="padding:11px 20px;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--amber);color:#160c00;border:0;border-radius:7px;cursor:pointer;font-size:12px">⬇ Download PNG</button>
+  <button onclick=closeCard() style="padding:11px 20px;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:transparent;color:var(--dim);border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:12px">Tutup</button>
+ </div>
+</div>
 <script>
 const $=id=>document.getElementById(id);
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
@@ -1066,6 +1073,79 @@ function renderCalendar(){
    +'</div>';
  }
  $('calGrid').innerHTML=html;
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function drawShareCard(e){
+ const c=$('shareCanvas'), W=960, H=600, dpr=Math.min(2,window.devicePixelRatio||1);
+ c.width=W*dpr; c.height=H*dpr; c.style.width=W+'px'; c.style.height=H+'px';
+ const ctx=c.getContext('2d'); ctx.scale(dpr,dpr);
+ const up=e.pnl>=0, col=up?'#27d07a':'#ff453a', colGlow=up?'rgba(39,208,122,.28)':'rgba(255,69,58,.28)';
+ // bg
+ ctx.fillStyle='#040302'; ctx.fillRect(0,0,W,H);
+ const rg=ctx.createRadialGradient(W/2,-40,40,W/2,H*0.35,W*0.75);
+ rg.addColorStop(0,colGlow); rg.addColorStop(1,'rgba(0,0,0,0)');
+ ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
+ // faint grid dots
+ ctx.fillStyle='rgba(255,140,26,.05)';
+ for(let gx=20;gx<W;gx+=26) for(let gy=20;gy<H;gy+=26) ctx.fillRect(gx,gy,1,1);
+ // border
+ ctx.strokeStyle='rgba(255,140,26,.35)'; ctx.lineWidth=1.5; roundRect(ctx,10,10,W-20,H-20,16); ctx.stroke();
+ // brand row
+ ctx.textBaseline='alphabetic';
+ ctx.fillStyle='#ff8c1a'; ctx.font='700 20px monospace'; ctx.fillText('₿ DNAYAKA', 44, 62);
+ ctx.fillStyle='#8a7f63'; ctx.font='500 12px monospace'; ctx.fillText('TRADING JOURNAL', 44, 80);
+ // symbol + dir badge (top right)
+ const badge=(e.sym||'TRADE')+'  '+(e.dir===-1?'▼ SHORT':'▲ LONG');
+ ctx.textAlign='right'; ctx.font='600 15px monospace'; ctx.fillStyle=e.dir===-1?'#ff453a':'#27d07a';
+ ctx.fillText(badge, W-44, 66); ctx.textAlign='left';
+ // date
+ ctx.fillStyle='#8a7f63'; ctx.font='500 12px monospace'; ctx.textAlign='right';
+ ctx.fillText(new Date(e.ts*1000).toLocaleString(), W-44, 84); ctx.textAlign='left';
+ // big PnL
+ const pnlTxt=(up?'+':'-')+'$'+Math.abs(e.pnl).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+ ctx.textAlign='center'; ctx.fillStyle=col; ctx.font='700 96px monospace';
+ ctx.shadowColor=colGlow; ctx.shadowBlur=50;
+ ctx.fillText(pnlTxt, W/2, 300); ctx.shadowBlur=0;
+ // % return if modal known
+ if(e.modal){
+  const pct=(e.pnl/e.modal*100); const pctTxt=(pct>=0?'+':'')+pct.toFixed(2)+'% return dari modal';
+  ctx.font='500 17px monospace'; ctx.fillStyle='#e8e2d0'; ctx.fillText(pctTxt, W/2, 336);
+ }
+ ctx.textAlign='left';
+ // stat row (entry/exit/lev/modal)
+ const stats=[];
+ if(e.entry!=null) stats.push(['ENTRY','$'+Number(e.entry).toLocaleString()]);
+ if(e.exit!=null) stats.push(['EXIT','$'+Number(e.exit).toLocaleString()]);
+ if(e.lev!=null) stats.push(['LEVERAGE',Number(e.lev)+'x']);
+ if(e.modal!=null) stats.push(['MODAL','$'+Number(e.modal).toLocaleString()]);
+ const n=stats.length||1, colW=(W-88)/n;
+ stats.forEach((s,i)=>{
+  const cx=44+colW*i;
+  ctx.strokeStyle='rgba(255,255,255,.08)'; if(i>0){ctx.beginPath();ctx.moveTo(cx,410);ctx.lineTo(cx,470);ctx.stroke()}
+  ctx.fillStyle='#8a7f63'; ctx.font='600 11px monospace'; ctx.fillText(s[0], cx+(i>0?18:0), 430);
+  ctx.fillStyle='#e8e2d0'; ctx.font='700 22px monospace'; ctx.fillText(s[1], cx+(i>0?18:0), 460);
+ });
+ // footer note
+ if(e.note){
+  ctx.fillStyle='#8a7f63'; ctx.font='italic 13px monospace';
+  let note=e.note.length>90?e.note.slice(0,90)+'…':e.note;
+  ctx.fillText('"'+note+'"', 44, 520);
+ }
+ ctx.fillStyle='rgba(255,140,26,.5)'; ctx.font='500 10px monospace'; ctx.textAlign='right';
+ ctx.fillText('dnayaka trading journal · dibuat otomatis', W-44, H-30);
+}
+let curCardEntry=null;
+function showCard(id){
+ const e=lastEntries.find(x=>x.id===id); if(!e) return;
+ curCardEntry=e; drawShareCard(e);
+ $('cardModal').style.display='flex';
+}
+function closeCard(){$('cardModal').style.display='none'}
+function downloadCard(){
+ if(!curCardEntry) return;
+ const c=$('shareCanvas');
+ const a=document.createElement('a'); a.download='pnl-'+(curCardEntry.sym||'trade')+'-'+curCardEntry.id+'.png';
+ a.href=c.toDataURL('image/png'); a.click();
 }
 $('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
 function compressImg(file, maxDim, quality){
@@ -1158,7 +1238,8 @@ function loadJournal(){
    const statline=stat.length?('<div style="font-size:11.5px;color:var(--dim);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">'+stat.join('')+'</div>'):'';
    return '<div style="border:1px solid var(--line);border-radius:6px;padding:11px">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:10.5px;color:var(--dim)">'+symtag+esc(dtxt)+'</span>'
-    +'<span style="display:flex;gap:6px"><button onclick="editEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--amber2);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">edit</button>'
+    +'<span style="display:flex;gap:6px">'+(e.pnl!=null?('<button onclick="showCard(\''+e.id+'\')" style="background:none;border:1px solid var(--amber);color:var(--amber);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">🎴 pamer</button>'):'')
+    +'<button onclick="editEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--amber2);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">edit</button>'
     +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></span></div>'
     +statline
     +(e.note?('<div style="font-size:12.5px;margin-top:7px;white-space:pre-wrap;line-height:1.5">'+esc(e.note)+'</div>'):'')
