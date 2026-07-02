@@ -115,6 +115,43 @@ Being upfront about what's *not* here, for whoever picks this up next — includ
 
 (Two things that used to be listed here as gaps — the equity/leverage simulator and the buy-and-hold overlay on `/performa` — are built now.)
 
+## Maintaining this project (for an AI assistant or a new human)
+
+If you're picking this up cold — Claude, another AI, or a person who didn't write it — here's the actual order of operations that works, not just "read the code."
+
+1. **Orient before you touch anything.**
+   - Read this README top to bottom first — it's the map.
+   - Read `CLAUDE.md` in the parent `dynamic_rsi/` folder. This is the important one: it's the full research log, including every strategy idea that was tried and *rejected*, with the numbers. Skipping it means re-discovering dead ends that are already mapped out — burned time for nothing.
+   - If a knowledge graph exists at `graphify-out/graph.json`, use it instead of grepping blind: `graphify query "how does the circuit breaker work"` or `graphify query "what calls sync_live"`. It's built with community detection specifically so you can see which files are conceptually related before you start editing. Regenerate it after a significant change: `/graphify --update` (re-extracts only new/changed files, cheap).
+
+2. **Understand the safety model before changing anything execution-related.** Two independent layers — the circuit breaker and the statistical tripwire (see [Risk controls](#risk-controls-circuit-breaker--statistical-tripwire) above) — plus a hard 1x leverage cap in the execution path itself, not just in config. If a task seems to require loosening one of these, stop and confirm with a human first; don't just comment it out to make a test pass.
+
+3. **The dev loop that actually works here** (this project has no test suite in the CI sense — verification is manual but mandatory):
+   ```bash
+   python3 -c "import ast; ast.parse(open('config_server.py').read())"   # syntax check BEFORE restart
+   systemctl --user restart bot-config bot-admin                        # apply
+   curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8788/      # smoke test
+   python3 bot_v22.py --selftest                                        # MUST match baseline: +3361%/558 trades/64.3% WR
+   ```
+   `bot_v22.py --selftest` replays the full historical CSV through the exact same code path the live bot runs. If that number drifts after a change that wasn't supposed to touch strategy logic, you broke something — don't ignore it as noise.
+
+4. **For anything UI-facing, actually look at it.** Don't claim a frontend change works without seeing it render. Use Playwright (already used throughout this project's history) for a real screenshot, not just "the code looks right":
+   ```python
+   from playwright.sync_api import sync_playwright
+   with sync_playwright() as p:
+       b = p.chromium.launch(); pg = b.new_page(viewport={"width":390,"height":844})  # mobile viewport too
+       pg.goto("http://127.0.0.1:8788/"); pg.screenshot(path="/tmp/check.png")
+   ```
+   Check for `0 console errors` explicitly (`pg.on("console", ...)`), not just that the page loaded.
+
+5. **If you touch the journal, tripwire, or alerts storage** (`journal.json`, `alerts.json`, `users.json`, `sessions.json`) — these are real user data on a running system, not fixtures. Test with throwaway entries, then delete them afterward and confirm the real data (e.g. the actual logged-in user's journal entries) is untouched before you consider the task done.
+
+6. **Commit discipline:** never commit `bot_secrets.json`, `.terminal_pass`, `users.json`, `sessions.json`, `journal.json`, `alerts.json`, or anything else covered in `.gitignore` — check it before adding files, don't just `git add -A`. Write commit messages that explain *why*, not just what (a future reader — human or AI — can already see the diff).
+
+7. **Before ever touching `net: "mainnet"` or setting `live: true` against a real account:** read `TESTNET_CHECKLIST.md` fully. It's a phased checklist (mechanic verification → forward-run → circuit-breaker test → go/no-go) for a reason — every phase exists because something specific was validated at that step, not because it's bureaucracy.
+
+**In short:** map first (README + CLAUDE.md + graph query), respect the safety rails, verify with real commands and real screenshots — never claim something works without having run it.
+
 ## Safety notes
 
 - Live execution requires `live: true` in `bot_config.json`, which defaults to `false`. Out of the box, this thing can't place a real order no matter what you click.
