@@ -852,7 +852,9 @@ function loadCalendar(){Promise.all([fetch('/api/calendar').then(r=>r.json()),fe
  if(soon){const m=Math.round((soon.t-now)/60);w.textContent='⚠️ '+soon.title+' dlm '+(m>=60?Math.floor(m/60)+'j'+(m%60)+'m':m+'m');w.style.color='var(--down)';}
  else{w.textContent=up.length+' event';w.style.color='var(--dim)';}
  const box=$('calbody');box.textContent='';
- if(!up.length){const z=document.createElement('div');z.style.cssText='color:var(--dim);font-size:12px';z.textContent='tidak ada event USD high/medium minggu ini';box.appendChild(z);return;}
+ if(!up.length){const z=document.createElement('div');z.style.cssText='color:var(--dim);font-size:12px';z.append('tidak ada event USD high/medium minggu ini · cek: ');
+  const mklink0=(href,txt)=>{const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='color:var(--amber2);display:inline;text-decoration:underline';a.textContent=txt;return a;};
+  z.appendChild(mklink0('https://www.forexfactory.com/calendar','ForexFactory'));box.appendChild(z);return;}
  up.forEach(e=>{const d=new Date(e.t*1000),dt=e.t-now;
   const wib=d.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
   const row=document.createElement('div');row.className='calrow';
@@ -872,7 +874,12 @@ function loadCalendar(){Promise.all([fetch('/api/calendar').then(r=>r.json()),fe
   row.appendChild(hd);row.appendChild(meta);
   if(e.actual){const av=document.createElement('div');av.className='calnote';const cmp=adir===1?' <span style="color:var(--up)">↑ di atas perkiraan</span>':adir===-1?' <span style="color:var(--down)">↓ di bawah perkiraan</span>':(e.forecast?' <span style="color:var(--dim)">= sesuai</span>':'');
    av.innerHTML='✅ <b style="color:var(--amber2)">HASIL: '+e.actual+'</b>'+(e.forecast?' <span style="color:var(--dim)">vs perkiraan '+e.forecast+'</span>':'')+cmp;row.appendChild(av);}
-  else if(dt<0){const av=document.createElement('div');av.className='calnote';av.textContent=calCoverable(e.title)?'⏳ menunggu hasil (update tiap jam)…':'✓ sudah rilis — hasil lengkap di ForexFactory/Investing';row.appendChild(av);}
+  else if(dt<0){   // udah rilis tapi kita blm punya angkanya (BLS blm update / sumbernya di luar cakupan BLS) -> kasih link eksternal BENERAN, bukan cuma sebut nama situsnya
+   const av=document.createElement('div');av.className='calnote';
+   av.append((calCoverable(e.title)?'⏳ menunggu hasil (update tiap jam)':'✓ sudah rilis — hasil belum otomatis terbaca')+' · cek: ');
+   const mklink=(href,txt)=>{const a=document.createElement('a');a.href=href;a.target='_blank';a.rel='noopener noreferrer';a.style.cssText='color:var(--amber2);display:inline;text-decoration:underline';a.textContent=txt;return a;};
+   av.appendChild(mklink('https://www.forexfactory.com/calendar','ForexFactory'));av.append(' · ');av.appendChild(mklink('https://www.investing.com/economic-calendar/','Investing.com'));
+   row.appendChild(av);}
   row.appendChild(wt);row.appendChild(up);row.appendChild(dn);
   if(fed&&fed.active&&e.title===fed.event){   // rangkuman AI Fed (hawkish/dovish + ID) — DOM/textContent (aman XSS)
    const tc=fed.tone==='hawkish'?'var(--down)':fed.tone==='dovish'?'var(--up)':'var(--amber2)';
