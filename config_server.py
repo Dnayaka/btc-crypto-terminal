@@ -889,10 +889,11 @@ function loadCalendar(){Promise.all([fetch('/api/calendar').then(r=>r.json()),fe
   box.appendChild(row);
  });}).catch(_=>{});}
 function loadMetrics(){const s=sym;fetch('/api/metrics?sym='+sym).then(r=>r.json()).then(m=>{if(s!==sym)return;const f=$('funding');f.textContent=(m.funding>=0?'+':'')+m.funding.toFixed(4)+'%';f.className='g-v '+(m.funding>=0?'up':'down');$('fnd2').textContent=(m.funding>=0?'+':'')+m.funding.toFixed(4)+'%';$('fng').textContent=m.fng+(m.fng_txt?' · '+m.fng_txt:'');$('fngbar').style.width=(parseInt(m.fng)||0)+'%';$('mark').textContent=fp(m.mark);$('mk2').textContent=fp(m.mark);});}
+function agoTxt(ts){if(!ts)return '';const s=Math.max(0,Math.floor(Date.now()/1000)-ts);const m=Math.floor(s/60);const t=m<1?'br saja':(m+'m lalu');return ' <span style="color:var(--faint)" title="data Binance ini publish tiap 5mnt sekali, wajar statis diantaranya">· '+t+'</span>';}
 function loadLiq(){const s=sym;fetch('/api/liquidity?sym='+sym).then(r=>r.json()).then(d=>{if(s!==sym)return;if(d.imb!=null){$('lqb').style.flex=d.imb;$('lqa').style.flex=100-d.imb;$('lqb').textContent=Math.round(d.imb)+'% BID';$('lqa').textContent='ASK '+Math.round(100-d.imb)+'%';}if(d.bidWall)$('bidwall').textContent=d.bidWall[1].toFixed(1)+' @ '+fp(d.bidWall[0]);if(d.askWall)$('askwall').textContent=d.askWall[1].toFixed(1)+' @ '+fp(d.askWall[0]);if(d.oi!=null){const v=fmt(d.oi)+' '+SN[sym];$('oi').textContent=v;$('oi2').textContent=v;}const dlt=(cur,prev)=>{if(prev==null)return '';const g=+(cur-prev).toFixed(1);return g>0?' <span style="color:var(--up)">▲'+g+'</span>':g<0?' <span style="color:var(--down)">▼'+Math.abs(g)+'</span>':' <span style="color:var(--dim)">→</span>';};
- if(d.ls_l!=null){$('ls2').innerHTML=d.ls_l+'% long · '+d.ls_s+'% short'+(d.ls_l0!=null?' <span style="color:var(--dim)">(seb '+d.ls_l0+'%)</span>'+dlt(d.ls_l,d.ls_l0):'');$('lsL').style.flex=d.ls_l;$('lsS').style.flex=d.ls_s;$('lsL').textContent=d.ls_l+'%';$('lsS').textContent=d.ls_s+'%';if(d.ls&&$('ls'))$('ls').textContent=d.ls.toFixed(2);}else if(d.ls){const t=d.ls.toFixed(2);if($('ls'))$('ls').textContent=t;$('ls2').textContent=t;}
- if(d.top_l!=null){$('top2').innerHTML=d.top_l+'% long · '+d.top_s+'% short'+(d.top_l0!=null?' <span style="color:var(--dim)">(seb '+d.top_l0+'%)</span>'+dlt(d.top_l,d.top_l0):'');$('topL').style.flex=d.top_l;$('topS').style.flex=d.top_s;$('topL').textContent=d.top_l+'%';$('topS').textContent=d.top_s+'%';}else if(d.top)$('top2').textContent=d.top.toFixed(2);
- if(d.tk_b!=null){$('taker2').innerHTML=d.tk_b+'% buy · '+d.tk_s+'% sell'+(d.tk_b0!=null?' <span style="color:var(--dim)">(seb '+d.tk_b0+'%)</span>'+dlt(d.tk_b,d.tk_b0):'');$('tkB').style.flex=d.tk_b;$('tkS').style.flex=d.tk_s;$('tkB').textContent=d.tk_b+'%';$('tkS').textContent=d.tk_s+'%';}else if(d.taker)$('taker2').textContent=d.taker.toFixed(2);});}
+ if(d.ls_l!=null){$('ls2').innerHTML=d.ls_l+'% long · '+d.ls_s+'% short'+(d.ls_l0!=null?' <span style="color:var(--dim)">(seb '+d.ls_l0+'%)</span>'+dlt(d.ls_l,d.ls_l0):'')+agoTxt(d.ls_ts);$('lsL').style.flex=d.ls_l;$('lsS').style.flex=d.ls_s;$('lsL').textContent=d.ls_l+'%';$('lsS').textContent=d.ls_s+'%';if(d.ls&&$('ls'))$('ls').textContent=d.ls.toFixed(2);}else if(d.ls){const t=d.ls.toFixed(2);if($('ls'))$('ls').textContent=t;$('ls2').textContent=t;}
+ if(d.top_l!=null){$('top2').innerHTML=d.top_l+'% long · '+d.top_s+'% short'+(d.top_l0!=null?' <span style="color:var(--dim)">(seb '+d.top_l0+'%)</span>'+dlt(d.top_l,d.top_l0):'')+agoTxt(d.top_ts);$('topL').style.flex=d.top_l;$('topS').style.flex=d.top_s;$('topL').textContent=d.top_l+'%';$('topS').textContent=d.top_s+'%';}else if(d.top)$('top2').textContent=d.top.toFixed(2);
+ if(d.tk_b!=null){$('taker2').innerHTML=d.tk_b+'% buy · '+d.tk_s+'% sell'+(d.tk_b0!=null?' <span style="color:var(--dim)">(seb '+d.tk_b0+'%)</span>'+dlt(d.tk_b,d.tk_b0):'')+agoTxt(d.tk_ts);$('tkB').style.flex=d.tk_b;$('tkS').style.flex=d.tk_s;$('tkB').textContent=d.tk_b+'%';$('tkS').textContent=d.tk_s+'%';}else if(d.taker)$('taker2').textContent=d.taker.toFixed(2);});}
 function loadStats(){const sy=sym;fetch('/api/stats?sym='+sym).then(r=>r.json()).then(s=>{if(sy!==sym)return;$('hi').textContent=fp(s.high);$('lo').textContent=fp(s.low);$('vol').textContent=fvol(s.quoteVol);const c=$('ch24');c.textContent=(s.change>=0?'+':'')+s.change.toFixed(2)+'%';c.className='v '+(s.change>=0?'up':'down');const g=$('chg');g.textContent=(s.change>=0?'+':'')+s.change.toFixed(2)+'%';g.className=s.change>=0?'up':'down';$('wavg').textContent=fp(s.wavg);$('trades').textContent=fmt(s.trades);});}
 const _esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const _safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'#';
@@ -1655,17 +1656,20 @@ class H(BaseHTTPRequestHandler):
                 try:   # RETAIL (akun ritel) — persen long/short + nilai SEBELUMNYA (limit=2, urut ascending -> [-1]=kini [-2]=sebelum)
                     a=bget(f"/futures/data/globalLongShortAccountRatio?symbol={sym}&period=5m&limit=2") or []
                     r=a[-1]; d["ls"]=float(r["longShortRatio"]); d["ls_l"]=round(float(r["longAccount"])*100,1); d["ls_s"]=round(float(r["shortAccount"])*100,1)
+                    d["ls_ts"]=int(r["timestamp"])//1000   # sumber Binance publish tiap 5mnt -- angka MEMANG statis diantaranya, bukan bug; ts ini dipakai FE tampilin "update Xm lalu"
                     if len(a)>=2: d["ls_l0"]=round(float(a[-2]["longAccount"])*100,1)
                 except: pass
                 try:   # WHALE (top trader posisi) — persen long/short + sebelumnya
                     a=bget(f"/futures/data/topLongShortPositionRatio?symbol={sym}&period=5m&limit=2") or []
                     r=a[-1]; d["top"]=float(r["longShortRatio"]); d["top_l"]=round(float(r["longAccount"])*100,1); d["top_s"]=round(float(r["shortAccount"])*100,1)
+                    d["top_ts"]=int(r["timestamp"])//1000
                     if len(a)>=2: d["top_l0"]=round(float(a[-2]["longAccount"])*100,1)
                 except: pass
                 try:   # TAKER buy/sell — persen dari volume aktual + sebelumnya
                     a=bget(f"/futures/data/takerlongshortRatio?symbol={sym}&period=5m&limit=2") or []
                     r=a[-1]; d["taker"]=float(r["buySellRatio"]); bv=float(r["buyVol"]); sv=float(r["sellVol"]); tot=bv+sv
                     if tot>0: d["tk_b"]=round(bv/tot*100,1); d["tk_s"]=round(sv/tot*100,1)
+                    d["tk_ts"]=int(r["timestamp"])//1000
                     if len(a)>=2:
                         b2=float(a[-2]["buyVol"]); s2=float(a[-2]["sellVol"]); t2=b2+s2
                         if t2>0: d["tk_b0"]=round(b2/t2*100,1)
