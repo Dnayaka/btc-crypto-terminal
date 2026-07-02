@@ -4,6 +4,37 @@ Panduan ngoprek/menambah fitur dashboard trading. **Dashboard = SATU file `confi
 
 ---
 
+## 0. MAINTENANCE — urutan kerja WAJIB (baca ini duluan, sebelum apapun)
+
+Kalau kamu (AI atau manusia) baru pertama kali pegang project ini, ikuti urutan ini — bukan langsung ngoprek kode:
+
+1. **Peta dulu, jangan grep buta.**
+   - Baca README.md (arsitektur + fitur, sudah di-push ke GitHub `dnayaka/btc-crypto-terminal`).
+   - Baca CLAUDE.md ini FULL — isinya log riset lengkap termasuk SEMUA ide yang GAGAL + angka aslinya (§4 "YANG GAGAL"). Skip ini = ngulang dead-end yang udah dipetakan, buang waktu.
+   - Kalau `graphify-out/graph.json` ada (per 2-Jul, 747 node/1207 edge/86 komunitas, sudah di-commit): pakai `graphify query "pertanyaan"` buat navigasi cepat, bukan baca semua file satu-satu. Contoh: `graphify query "bagaimana cara kerja circuit breaker"`. Update graf setelah perubahan signifikan: `/graphify --update`.
+
+2. **Pahami safety model SEBELUM ubah apapun soal eksekusi.** Circuit breaker (§8 arahan 28-Jun) + statistical tripwire (§10) + leverage hard-cap 1x di kode eksekusi (bukan cuma di config). Kalau task keliatannya butuh melonggarkan salah satu ini — STOP, konfirmasi ke user dulu. Jangan comment-out biar "kelihatan jalan".
+
+3. **Loop dev yang beneran dipakai** (nggak ada CI/test-suite formal, verifikasi manual tapi WAJIB tiap perubahan):
+   ```bash
+   python3 -c "import ast; ast.parse(open('config_server.py').read())"   # syntax check SEBELUM restart
+   systemctl --user restart bot-config bot-admin
+   curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8788/
+   python3 bot_v22.py --selftest   # WAJIB match baseline +3361%/558 trade/64.3% WR — kalau drift & perubahan seharusnya nggak nyentuh strategi, ITU BUG, jangan diabaikan
+   ```
+
+4. **Perubahan UI = WAJIB screenshot beneran** (Playwright, bukan snap-chromium — lihat gotcha di §"Verifikasi UI" atas), termasuk viewport mobile (390px), cek `0 console errors` eksplisit. Jangan klaim "udah bener" tanpa liat render-nya.
+
+5. **Journal/tripwire/alerts (`journal.json`/`alerts.json`/`users.json`/`sessions.json`) itu DATA USER BENERAN**, bukan fixture. Tes pakai akun/entri buangan (bikin user tes via `userdb.add_user`, login via LAN-IP bukan localhost biar dapet identitas sungguhan, BUKAN pseudo-user "local"), hapus lagi + verifikasi data asli nggak kesentuh SEBELUM lapor task selesai.
+
+6. **Disiplin commit**: jangan pernah commit file yang ada di `.gitignore` (secrets/password/session/journal/alerts data). Cek `git status` dulu, jangan `git add -A` asal. Commit message jelasin KENAPA, bukan cuma WHAT (diff udah nunjukin what).
+
+7. **Sebelum `net:"mainnet"` atau `live:true` beneran** — baca `TESTNET_CHECKLIST.md` FULL. Tiap fase (mekanik→forward-run→circuit-breaker-test→go/no-go) ada alasannya, bukan formalitas.
+
+**Isolasi per-user (journal, dll) — cara kerjanya:** tiap request di-resolve `jusr` dari COOKIE SESI (bukan input user, nggak bisa dipalsu), semua baca/tulis cuma nyentuh `d[jusr]` sendiri. Dites langsung 2-Jul (2 akun beneran, browser session terpisah): User B nggak bisa lihat ATAU hapus entri User A walau tau ID-nya persis — request cuma beroperasi di list KOSONG milik User B sendiri, jadi no-op. ⚠️ Nemuan minor (bukan security bug): endpoint delete balikin `{"ok":true}` walau ID-nya bukan punya si pengirim (soalnya operasinya idempotent-by-design di list sendiri) — kurang presisi feedback-nya, belum di-fix (opsional).
+
+---
+
 ## ⭐ ARAHAN TERBARU (28-Jun) — baca dulu
 
 **1. Pengembangan HTML SELANJUTNYA → pakai `graphify`.** Per arahan user: semua pengembangan file HTML/terminal berikutnya gunakan **graphify**. ⚠️ Catatan implementor: konfirmasi dulu ke user apa persisnya `graphify` (library chart? design-tool? generator/pendekatan tertentu?) SEBELUM menerapkan ke file produksi — jangan menebak & merusak terminal yang sudah jalan. Direktif ini WAJIB dihormati di sesi HTML berikutnya.
