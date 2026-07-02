@@ -93,6 +93,15 @@ Dependencies: `pip install -r requirements.txt`; for WhatsApp notifications, `cd
 
 Already built (previously listed here as gaps, now shipped): configurable equity/leverage/drawdown simulator and buy-and-hold comparison overlay, both on `/performa`.
 
+## Risk controls (circuit breaker + statistical tripwire)
+
+Two independent layers watch the live bot, on top of the 1x leverage cap:
+
+1. **Circuit breaker** — trips on a single extreme point: drawdown-from-peak ≥15%, or ≥6 consecutive losing trades. Flattens the position and forces `live: false`.
+2. **Statistical tripwire** — a second, more sensitive layer that watches the *shape* of recent performance, not just extremes. It tracks 4 rolling metrics (41-trade win rate, 41-trade compounded return, 30-trade short-only win rate, drawdown-from-peak) and compares them against the worst values ever observed in the strategy's real 2019–2025 trade history (cross-checked against a TradingView trade-list export, not just the internal backtest). One metric breaching its historical floor cuts order size 50%; two or more breaching *simultaneously* pauses trading entirely — the same reasoning as the breaker above, just triggered earlier and calibrated from data instead of a round number.
+
+Both are config-toggleable (`bot_config.json` → `breaker`/`tripwire`), both default on, and both are silent no-ops in paper mode until you flip `live: true`. See `CLAUDE.md` §10 for the full derivation and validation (a 6-year replay trips it 14 times at tier-1, 0 times at tier-2 — it isn't decorative).
+
 ## Safety notes
 
 - `place_market()` and any live execution path require `live: true` in `bot_config.json` (default `false`) — everything is paper/read-only out of the box.
