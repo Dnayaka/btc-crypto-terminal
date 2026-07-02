@@ -1487,6 +1487,7 @@ function renderList(){
    const dtxt=new Date(e.ts*1000).toLocaleString();
    const img=e.img?('<img src="/journal_img/'+e.img+'" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'';
    const symtag=e.sym?('<span class=tag style="margin-right:8px">'+esc(e.sym)+'</span>'):'';
+   const autotag=e.auto?'<span class=tag style="margin-right:8px;border-color:var(--amber);color:var(--amber)">🤖 bot auto</span>':'';
    const stat=[];
    if(e.pnl!=null)stat.push('<span>PnL <b style="color:'+(e.pnl>=0?'var(--up)':'var(--down)')+'">'+(e.pnl>=0?'+':'')+'$'+Number(e.pnl).toLocaleString()+'</b></span>');
    if(e.dir!=null)stat.push('<span><b style="color:'+(e.dir===-1?'var(--down)':'var(--up)')+'">'+(e.dir===-1?'▼ SHORT':'▲ LONG')+'</b></span>');
@@ -1496,11 +1497,11 @@ function renderList(){
    if(e.sl!=null)stat.push('<span>SL <b style="color:var(--down)">$'+Number(e.sl).toLocaleString()+'</b></span>');
    if(e.lev!=null)stat.push('<span>Lev <b style="color:var(--amber)">'+Number(e.lev)+'x</b></span>');
    const statline=stat.length?('<div style="font-size:11.5px;color:var(--dim);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">'+stat.join('')+'</div>'):'';
-   return '<div style="border:1px solid var(--line);border-radius:6px;padding:11px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:10.5px;color:var(--dim)">'+symtag+esc(dtxt)+'</span>'
+   return '<div style="border:1px solid '+(e.auto?'var(--faint)':'var(--line)')+';border-radius:6px;padding:11px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:10.5px;color:var(--dim)">'+autotag+symtag+esc(dtxt)+'</span>'
     +'<span style="display:flex;gap:6px">'+(e.pnl!=null?('<button onclick="showCard(\''+e.id+'\')" style="background:none;border:1px solid var(--amber);color:var(--amber);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">🎴 pamer</button>'):'')
-    +'<button onclick="editEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--amber2);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">edit</button>'
-    +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></span></div>'
+    +(e.auto?'':('<button onclick="editEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--amber2);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">edit</button>'
+    +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button>'))+'</span></div>'
     +statline
     +(e.note?('<div style="font-size:12.5px;margin-top:7px;white-space:pre-wrap;line-height:1.5">'+esc(e.note)+'</div>'):'')
     +img+'</div>';
@@ -1759,7 +1760,11 @@ class H(BaseHTTPRequestHandler):
             return self._s(200,"text/html", JOURNAL)
         if path=="/api/journal":
             if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
-            return self._s(200,"application/json", json.dumps({"entries":_jload().get(jusr,[])}))
+            d=_jload(); entries=list(d.get(jusr,[]))
+            if local or (usr and is_admin(usr)):   # cuma owner bot yg liat trade auto-log-nya sendiri, bukan user lain
+                entries=entries+list(d.get("__bot_v20__",[]))
+                entries.sort(key=lambda e:e.get("ts",0))
+            return self._s(200,"application/json", json.dumps({"entries":entries}))
         if path=="/api/alerts":
             if not jusr: return self._s(401,"application/json",'{"error":"login required"}')
             return self._s(200,"application/json", json.dumps({"alerts":_aload().get(jusr,[])}))

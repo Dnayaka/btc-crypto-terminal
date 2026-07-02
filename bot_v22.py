@@ -40,6 +40,32 @@ def save_state(st):
     with open(tmp,"w") as f: json.dump(st,f,indent=1)
     os.replace(tmp, STATE_F)
 
+# ---------- auto-log trade bot -> journal (best-effort, TAK PERNAH boleh ganggu trading) ----------
+JOURNAL_F=os.path.join(HERE,"journal.json")
+BOT_JKEY="__bot_v20__"   # key reserved, BUKAN username -- di-merge read-only ke journal admin/owner
+def _auto_log_journal(direction, entry_px, exit_px, reason, ret_pct, ts):
+    """Best-effort: dipanggil SETELAH step_v20 selesai & posisi ke-flat. Gagal di sini TIDAK BOLEH
+    propagate ke do_once() -- makanya SELALU dibungkus try/except di caller juga (defense in depth)."""
+    try:
+        import secrets as _sec
+        cfg=load_config(); size_usd=min(float(cfg.get("size_usd",120)), float(cfg.get("max_size_usd",2000)))
+        pnl_usd=round(size_usd*ret_pct,2)
+        entry={"id":_sec.token_hex(8),"ts":int(ts),
+               "note":f"🤖 Auto-log bot v20 — exit {reason} (estimasi size_usd config, bukan order asli tiap saat)",
+               "sym":"BTCUSDT","img":None,"modal":size_usd,"entry":round(float(entry_px),1),"sl":None,
+               "lev":1,"pnl":pnl_usd,"exit":round(float(exit_px),1),"dir":int(direction),"auto":True}
+        d={}
+        if os.path.exists(JOURNAL_F):
+            with open(JOURNAL_F) as f: d=json.load(f)
+        mine=d.setdefault(BOT_JKEY,[]); mine.append(entry); d[BOT_JKEY]=mine[-500:]
+        tmp=JOURNAL_F+".tmp"
+        fd=os.open(tmp, os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o600)
+        with os.fdopen(fd,"w") as f: json.dump(d,f)
+        os.replace(tmp, JOURNAL_F)
+    except Exception as e:
+        try: log_err(f"auto-log journal gagal (non-fatal): {str(e)[:80]}")
+        except Exception: pass
+
 def show_status(st=None):
     if st is None: st=load_state()
     sl=st['v20']; ps={0:'FLAT',1:'LONG',-1:'SHORT'}[sl['pos']]
@@ -72,7 +98,19 @@ def do_once():
     price=ctx['c'][n-1]
     ev=[]
     for i in range(start, n):
-        ev+=step_v20(st['v20'], i, ctx, ai=int(ot[i])//BAR_MS)
+        pos_before=st['v20']['pos']; entry_before=st['v20']['entry']
+        step_ev=step_v20(st['v20'], i, ctx, ai=int(ot[i])//BAR_MS)
+        ev+=step_ev
+        if pos_before!=0:   # ada posisi masuk ke bar ini -> cek apa baru ke-exit di bar ini
+            for line in step_ev:
+                if line.startswith("EXIT"):
+                    try:
+                        import re as _re
+                        m=_re.search(r"@\s+([\d.]+)\s+(\w+)\s+ret\s+([+-][\d.]+)%", line)
+                        if m:
+                            _auto_log_journal(pos_before, entry_before, float(m.group(1)), m.group(2),
+                                               float(m.group(3))/100.0, int(ot[i])//1000)
+                    except Exception: pass   # auto-log journal TAK PERNAH boleh ganggu loop trading
     print(f"== bar {df['dt'].iloc[-1]} close {price:.1f} | proses {n-start} bar (start idx {start}) ==")
     sl0=st['v20']; log_run(f"bar {df['dt'].iloc[-1]} close {price:.1f} | pos {({0:'FLAT',1:'LONG',-1:'SHORT'}[sl0['pos']])} eq x{sl0['equity']:.3f} | proses {n-start} bar")
     cfg=load_config(); sl=st['v20']
