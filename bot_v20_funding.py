@@ -171,7 +171,7 @@ def build_v20_context_multi(df, sym):
 def new_sleeve(): return dict(pos=0,entry=0.0,tp=0.0,sl=0.0,hi=0.0,lo=0.0,trail=None,
                               gap=0.0,pending=0,entry_i=-1,last_entry_i=-10**9,
                               last_exit_dir=0,last_exit_i=-10**9,
-                              held=0,equity=1.0,ntr=0,nwin=0,loss_streak=0,hist=[])
+                              held=0,equity=1.0,ntr=0,nwin=0,loss_streak=0,hist=[],equity_hist=[])
 
 def step_v20(s, i, ctx, fill_next_open=True, ai=None):
     """Proses bar i utk sleeve v20. Mengembalikan list event (string). Mutasi s in-place.
@@ -204,6 +204,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
                 r=(px/s['entry']-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
                 s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
                 s.setdefault('hist',[]).append({"dir":1,"net":r}); s['hist']=s['hist'][-100:]
+                s.setdefault('equity_hist',[]).append({"ts":int(time.time()),"eq":s['equity']}); s['equity_hist']=s['equity_hist'][-2000:]   # untuk chart live-vs-backtest, murni tambahan tak ganggu logika trading
                 ev.append(f"EXIT  v20 LONG  @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=1; s['last_exit_i']=aidx
             else:
@@ -219,6 +220,7 @@ def step_v20(s, i, ctx, fill_next_open=True, ai=None):
                 r=(s['entry']/px-1)-2*fee; s['equity']*=(1+LEVERAGE*r); s['ntr']+=1; s['nwin']+=int(r>0)
                 s['loss_streak']=0 if r>0 else s.get('loss_streak',0)+1
                 s.setdefault('hist',[]).append({"dir":-1,"net":r}); s['hist']=s['hist'][-100:]
+                s.setdefault('equity_hist',[]).append({"ts":int(time.time()),"eq":s['equity']}); s['equity_hist']=s['equity_hist'][-2000:]   # untuk chart live-vs-backtest, murni tambahan tak ganggu logika trading
                 ev.append(f"EXIT  v20 SHORT @ {px:.1f}  {ex}  ret {r*100:+.2f}%")
                 s['pos']=0; s['last_exit_dir']=-1; s['last_exit_i']=aidx
             else:

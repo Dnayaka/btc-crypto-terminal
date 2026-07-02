@@ -448,7 +448,7 @@ class H(BaseHTTPRequestHandler):
             d={"sleeves":{},"breaker":{},"tripwire":{}}
             try:
                 st=json.load(open(STATE))
-                v=st.get("v20",{}); d["sleeves"]["v20"]={k:x for k,x in v.items() if k!="hist"}
+                v=st.get("v20",{}); d["sleeves"]["v20"]={k:x for k,x in v.items() if k not in("hist","equity_hist")}
                 d["breaker"]=st.get("breaker",{})
                 d["tripwire"]=st.get("tripwire",{"tier":0,"reasons":[],"size_mult":1.0})
             except: pass

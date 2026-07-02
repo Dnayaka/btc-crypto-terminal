@@ -485,6 +485,12 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
    <tbody id=cmpBody><tr><td colspan=4 style="padding:12px 0;color:var(--dim)">memuat…</td></tr></tbody>
   </table></div>
  </section>
+ <section class="panel rv d2" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Equity BTC · Bot LIVE vs Backtest</span></div>
+  <div id=eqcNote style="font-size:11px;color:var(--dim);margin-bottom:8px"></div>
+  <div id=eqcChart style="height:220px"></div>
+  <p style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">Kurva LIVE (amber) mulai tercatat dari kapan fitur ini aktif — bukan histori lama. Kurva backtest (abu-abu) di-rebase ke titik yg sama biar adil dibandingin (bukan skala absolut penuh 2019-2026).</p>
+ </section>
  <div class=grid>
   <section class="panel span2 rv d2">
    <div class=panel-h><span class=t><span class=sq></span><span id=chtitle>BTC · Price Action</span></span>
@@ -1001,6 +1007,22 @@ initChart();loadMetrics();loadLiq();loadStats();loadNews();loadCalendar();loadMa
   const m=document.createElement('span');m.className='mini';m.title='sembunyikan / tampilkan';m.textContent=p.classList.contains('collapsed')?'+':'–';
   m.onclick=e=>{e.stopPropagation();p.classList.toggle('collapsed');const c=p.classList.contains('collapsed');m.textContent=c?'+':'–';let s;try{s=JSON.parse(localStorage.getItem('panelMin'))||{};}catch(_){s={};}s[ti]=c;localStorage.setItem('panelMin',JSON.stringify(s));};
   h.appendChild(m);});})();
+let eqcChart=null,eqcLiveS=null,eqcBtS=null;
+function loadEqCompare(){fetch('/api/equity_compare').then(r=>r.json()).then(d=>{
+ const note=$('eqcNote'), box=$('eqcChart'); if(!box)return;
+ if(!d.live||!d.live.length){note.textContent=d.note||'belum ada data';box.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:12px">'+(d.note||'belum ada data')+'</div>';return;}
+ note.textContent='live sejak '+new Date(d.live[0][0]*1000).toLocaleDateString('id-ID')+' · '+d.live.length+' trade tercatat';
+ if(!eqcChart){
+  box.innerHTML='';
+  eqcChart=LightweightCharts.createChart(box,{layout:{background:{color:'transparent'},textColor:'#8a7f63',fontFamily:'IBM Plex Mono'},grid:{vertLines:{color:'#1b1810'},horzLines:{color:'#1b1810'}},rightPriceScale:{borderColor:'#1b1810'},timeScale:{borderColor:'#1b1810'},height:220});
+  eqcBtS=eqcChart.addLineSeries({color:'#8a7f63',lineWidth:1,title:'Backtest'});
+  eqcLiveS=eqcChart.addLineSeries({color:'#ff8c1a',lineWidth:2,title:'Live'});
+  new ResizeObserver(()=>eqcChart.applyOptions({width:box.clientWidth})).observe(box);
+ }
+ eqcBtS.setData(d.backtest.map(([t,e])=>({time:t,value:e})));
+ eqcLiveS.setData(d.live.map(([t,e])=>({time:t,value:e})));
+ eqcChart.timeScale().fitContent();
+}).catch(()=>{});}
 function loadCompare(){fetch('/api/compare').then(r=>r.json()).then(d=>{
  const b=$('cmpBody'); if(!b)return;
  const syms=['BTCUSDT','ETHUSDT','SOLUSDT']; const g=s=>d[s]||{};
@@ -1068,9 +1090,9 @@ function checkAlerts(){
 if(window.Notification&&Notification.permission==='default'){ /* minta izin notif browser cuma kalau user udah pernah interaksi -> minta pas pertama kali klik halaman */
  document.addEventListener('click',function _once(){Notification.requestPermission();document.removeEventListener('click',_once);},{once:true});
 }
-loadAlerts();loadCompare();
+loadAlerts();loadCompare();loadEqCompare();
 function poll(fn,ms){setTimeout(function(){fn();setInterval(fn,ms*(0.9+Math.random()*0.2));},Math.random()*ms);}  // jitter: anti cache-stampede 100 user lock-step
-setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);poll(loadCompare,20000);
+setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);poll(loadCompare,20000);poll(loadEqCompare,30000);
 </script></body></html>"""
 
 ADMINP=HEAD+"<title>DNAYAKA · Admin</title></head><body>"+ATMOS+r"""
@@ -1769,6 +1791,29 @@ class H(BaseHTTPRequestHandler):
             sym="ETHUSDT" if path=="/api/eth_v20" else "SOLUSDT"
             raw,gz=multi_v20_blob(sym)
             return self._s(200,"application/json",raw,gz=gz)
+        if path=="/api/equity_compare":   # equity LIVE bot (sejak fitur ini aktif) vs backtest, di-rebase ke titik yg sama biar adil dibandingin
+            def _prod():
+                live=[]
+                try:
+                    st=json.load(open(os.path.join(_JHERE,"bot_v22_state.json")))
+                    live=st.get("v20",{}).get("equity_hist",[]) or []
+                except Exception: pass
+                bt=[]
+                try:
+                    bt=json.load(open(_V20PATH)).get("equity",[])
+                except Exception: pass
+                if not live:
+                    return json.dumps({"live":[],"backtest":[],"note":"belum ada trade live tercatat sejak fitur ini aktif"})
+                t0=live[0]["ts"]
+                # rebase backtest ke titik equity backtest paling dekat SEBELUM t0, jadi kedua kurva mulai ~1.0 di titik yg sama
+                rebase=1.0
+                for ts,eq in bt:
+                    if ts<=t0: rebase=eq
+                    else: break
+                bt_r=[[ts,round(eq/rebase,5)] for ts,eq in bt if ts>=t0-86400]
+                live_r=[[p["ts"],round(p["eq"]/live[0]["eq"],5)] for p in live]
+                return json.dumps({"live":live_r,"backtest":bt_r,"note":None})
+            return self._s(200,"application/json",cache_get(("equity_compare",),30,_prod))
         if path=="/api/compare":   # ringkasan BTC/ETH/SOL berdampingan (harga/funding/v20 backtest) -- panel perbandingan
             def _prod():
                 out={}
