@@ -477,6 +477,14 @@ MAIN=HEAD+"<title>DNAYAKA · Crypto Terminal</title></head><body>"+ATMOS+r"""
   <div id=alList style="display:flex;flex-direction:column;gap:6px">memuat…</div>
   <p style="font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5">⚠️ Alert ini dicek di browser (bukan WhatsApp/push) — cuma jalan selama tab situs ini terbuka. Sekali kena, otomatis nonaktif (nggak spam berulang).</p>
  </section>
+ <section class="panel rv d2" style="margin-top:16px">
+  <div class=panel-h><span class=t><span class=sq></span>Perbandingan BTC / ETH / SOL</span></div>
+  <div id=cmpGrid style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:480px">
+   <thead><tr style="border-bottom:1px solid var(--line);text-align:left;color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em">
+    <th style="padding:6px 8px 8px 0">Metrik</th><th style="padding:6px 8px">₿ BTC</th><th style="padding:6px 8px">Ξ ETH</th><th style="padding:6px 8px">◎ SOL</th></tr></thead>
+   <tbody id=cmpBody><tr><td colspan=4 style="padding:12px 0;color:var(--dim)">memuat…</td></tr></tbody>
+  </table></div>
+ </section>
  <div class=grid>
   <section class="panel span2 rv d2">
    <div class=panel-h><span class=t><span class=sq></span><span id=chtitle>BTC · Price Action</span></span>
@@ -993,6 +1001,21 @@ initChart();loadMetrics();loadLiq();loadStats();loadNews();loadCalendar();loadMa
   const m=document.createElement('span');m.className='mini';m.title='sembunyikan / tampilkan';m.textContent=p.classList.contains('collapsed')?'+':'–';
   m.onclick=e=>{e.stopPropagation();p.classList.toggle('collapsed');const c=p.classList.contains('collapsed');m.textContent=c?'+':'–';let s;try{s=JSON.parse(localStorage.getItem('panelMin'))||{};}catch(_){s={};}s[ti]=c;localStorage.setItem('panelMin',JSON.stringify(s));};
   h.appendChild(m);});})();
+function loadCompare(){fetch('/api/compare').then(r=>r.json()).then(d=>{
+ const b=$('cmpBody'); if(!b)return;
+ const syms=['BTCUSDT','ETHUSDT','SOLUSDT']; const g=s=>d[s]||{};
+ const row=(label,fn)=>'<tr style="border-bottom:1px solid var(--line)"><td style="padding:7px 8px 7px 0;color:var(--dim)">'+label+'</td>'+syms.map(s=>'<td style="padding:7px 8px">'+fn(g(s))+'</td>').join('')+'</tr>';
+ const pxRow=row('Harga',x=>x.mark?fp(x.mark):'—');
+ const chgRow=row('24H',x=>x.chg24h==null?'—':'<b style="color:'+(x.chg24h>=0?'var(--up)':'var(--down)')+'">'+(x.chg24h>=0?'+':'')+x.chg24h.toFixed(2)+'%</b>');
+ const fundRow=row('Funding 8h',x=>x.funding==null?'—':(x.funding>=0?'+':'')+x.funding.toFixed(4)+'%');
+ const retRow=row('v20 Return',x=>x.v20_ret==null?'—':'<b style="color:'+(x.v20_ret>=0?'var(--up)':'var(--down)')+'">'+(x.v20_ret>=0?'+':'')+x.v20_ret+'%</b>');
+ const wrRow=row('v20 Win Rate',x=>x.v20_wr==null?'—':x.v20_wr+'%');
+ const calRow=row('v20 Calmar',x=>x.v20_cal==null?'—':x.v20_cal);
+ const liveRow='<tr><td style="padding:7px 8px 7px 0;color:var(--dim)">Posisi Live</td><td style="padding:7px 8px">'+
+  (g('BTCUSDT').live_state?('<b style="color:'+(g('BTCUSDT').live_dir>0?'var(--up)':(g('BTCUSDT').live_dir<0?'var(--down)':'var(--dim)'))+'">'+g('BTCUSDT').live_state+'</b>'):'—')+
+  '</td><td style="padding:7px 8px;color:var(--dim);font-size:11px">backtest saja</td><td style="padding:7px 8px;color:var(--dim);font-size:11px">backtest saja</td></tr>';
+ b.innerHTML=pxRow+chgRow+fundRow+retRow+wrRow+calRow+liveRow;
+}).catch(()=>{});}
 function alToast(msg,ok){const t=document.createElement('div');t.style.cssText='position:fixed;top:16px;right:16px;z-index:400;background:rgba(10,9,6,.96);border:1px solid '+(ok?'var(--amber)':'var(--line)')+';border-radius:8px;padding:12px 16px;font-size:12.5px;color:var(--ink);box-shadow:0 12px 34px rgba(0,0,0,.6);max-width:300px;animation:boot .3s ease-out';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(()=>t.remove(),400);},6000);}
 let alAlerts=[];
 function loadAlerts(){fetch('/api/alerts').then(r=>r.json()).then(d=>{alAlerts=d.alerts||[];renderAlerts();}).catch(_=>{});}
@@ -1045,9 +1068,9 @@ function checkAlerts(){
 if(window.Notification&&Notification.permission==='default'){ /* minta izin notif browser cuma kalau user udah pernah interaksi -> minta pas pertama kali klik halaman */
  document.addEventListener('click',function _once(){Notification.requestPermission();document.removeEventListener('click',_once);},{once:true});
 }
-loadAlerts();
+loadAlerts();loadCompare();
 function poll(fn,ms){setTimeout(function(){fn();setInterval(fn,ms*(0.9+Math.random()*0.2));},Math.random()*ms);}  // jitter: anti cache-stampede 100 user lock-step
-setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);
+setInterval(clock,1000);poll(tickChart,3000);poll(refreshV20,60000);poll(loadMetrics,3000);poll(loadLiq,8000);poll(loadStats,20000);poll(loadNews,300000);poll(loadCalendar,45000);poll(loadMacroNews,180000);poll(loadDxy,300000);poll(loadFedLive,60000);poll(loadGlobal,120000);poll(loadAI,120000);poll(loadLiqMap,60000);poll(loadLiqReal,60000);poll(loadWalls,8000);poll(loadObmap,20000);poll(loadSnr,60000);poll(checkAlerts,15000);poll(loadCompare,20000);
 </script></body></html>"""
 
 ADMINP=HEAD+"<title>DNAYAKA · Admin</title></head><body>"+ATMOS+r"""
@@ -1746,6 +1769,31 @@ class H(BaseHTTPRequestHandler):
             sym="ETHUSDT" if path=="/api/eth_v20" else "SOLUSDT"
             raw,gz=multi_v20_blob(sym)
             return self._s(200,"application/json",raw,gz=gz)
+        if path=="/api/compare":   # ringkasan BTC/ETH/SOL berdampingan (harga/funding/v20 backtest) -- panel perbandingan
+            def _prod():
+                out={}
+                vpath={"BTCUSDT":_V20PATH,"ETHUSDT":_MV20PATH["ETHUSDT"],"SOLUSDT":_MV20PATH["SOLUSDT"]}
+                for sym in ("BTCUSDT","ETHUSDT","SOLUSDT"):
+                    d={}
+                    try:
+                        j=bget("/fapi/v1/premiumIndex?symbol="+sym) or {}
+                        d["mark"]=float(j.get("markPrice",0)); d["funding"]=float(j.get("lastFundingRate",0))*100
+                    except Exception: pass
+                    try:
+                        tk=bget("/fapi/v1/ticker/24hr?symbol="+sym) or {}
+                        d["chg24h"]=float(tk.get("priceChangePercent",0))
+                    except Exception: pass
+                    try:
+                        vj=json.load(open(vpath[sym])); perf=vj.get("perf",{})
+                        d["v20_ret"]=perf.get("ret"); d["v20_wr"]=perf.get("wr"); d["v20_cal"]=perf.get("cal"); d["v20_n"]=perf.get("n")
+                    except Exception: pass
+                    out[sym]=d
+                try:   # cuma BTC yg punya eksekusi bot live (v20-only sleeve)
+                    st=json.load(open(os.path.join(_JHERE,"bot_v22_state.json"))); v=st.get("v20",{}); pos=int(v.get("pos",0))
+                    out["BTCUSDT"]["live_dir"]=pos; out["BTCUSDT"]["live_state"]="LONG" if pos>0 else ("SHORT" if pos<0 else "WAIT")
+                except Exception: pass
+                return json.dumps(out)
+            return self._s(200,"application/json",cache_get(("compare",),10,_prod))
         if path=="/api/signal":   # sinyal v20 SEKARANG (sanitized dari bot_v22_state: arah+entry+tp+sl, TANPA equity/key). Buat banner publik.
             def _prod():
                 o={"dir":0,"state":"WAIT"}
