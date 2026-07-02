@@ -952,15 +952,25 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
  <header class=hdr><div class=brand><span class=bt style="font-size:15px">📓</span> DNAYAKA<span style="color:var(--dim);font-weight:400;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-left:9px">Trading Journal</span><span class=cur></span></div>
   <div class=r><button class=navtog aria-label=Menu onclick="this.nextElementSibling.classList.toggle('open')">☰</button><div class=navwrap><a class=navlink href="/">CRYPTO</a><a class=navlink href="/logout">LOGOUT</a></div></div></header>
  <section class="panel rv d2" style="margin-top:16px">
-  <div class=panel-h><span class=t><span class=sq></span>Entri Baru</span></div>
-  <input id=jsym placeholder="Simbol (opsional, mis. BTC)" style="width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;margin-bottom:8px;box-sizing:border-box">
+  <div class=panel-h><span class=t><span class=sq></span><span id=jformtitle>Entri Baru</span></span><span id=jcancelWrap style="display:none"><button onclick=cancelEdit() style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:4px;cursor:pointer;font-size:10px;padding:4px 9px">batal edit</button></span></div>
+  <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+   <input id=jsym placeholder="Simbol (opsional, mis. BTC)" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jdt type=datetime-local style="flex:1;min-width:180px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box;color-scheme:dark">
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:8px">
+   <input id=jmodal type=number step=any placeholder="Modal $" title="Modal (USD)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jentry type=number step=any placeholder="Entry $" title="Harga entry" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jsl type=number step=any placeholder="SL $ (opsional)" title="Stop loss (opsional)" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+   <input id=jlev type=number step=any placeholder="Leverage x" title="Leverage" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;box-sizing:border-box">
+  </div>
   <textarea id=jnote placeholder="Catatan trade — kenapa entry, apa yang dipelajari, dst." style="width:100%;height:90px;background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>
   <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
    <label style="font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:9px 12px;cursor:pointer">📷 Screenshot<input id=jfile type=file accept="image/png,image/jpeg,image/webp" style="display:none" onchange="onPick(event)"></label>
    <span id=jfname style="font-size:11px;color:var(--dim)"></span>
+   <button id=jrmimg onclick=removeImg() style="display:none;background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:5px 9px">hapus gambar lama</button>
   </div>
   <img id=jprev style="display:none;max-width:100%;max-height:220px;border:1px solid var(--line);border-radius:6px;margin-top:8px">
-  <button onclick=saveEntry() style="width:100%;margin-top:10px;padding:13px;font-family:var(--mono);font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:6px;cursor:pointer;font-size:12px">Simpan Entri</button>
+  <button id=jsavebtn onclick=saveEntry() style="width:100%;margin-top:10px;padding:13px;font-family:var(--mono);font-weight:600;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--amber);border:1px solid var(--amber);border-radius:6px;cursor:pointer;font-size:12px">Simpan Entri</button>
   <div id=jmsg style="font-size:11px;color:var(--dim);margin-top:8px"></div>
  </section>
  <section class="panel rv d3" style="margin-top:16px">
@@ -972,40 +982,99 @@ JOURNAL=HEAD+"<title>DNAYAKA · Journal</title></head><body>"+ATMOS+r"""
 <script>
 const $=id=>document.getElementById(id);
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
-let pendingImg=null;
+function pad2(n){return String(n).padStart(2,'0')}
+function epochToLocalInput(ts){const d=new Date(ts*1000);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes())}
+function localInputToEpoch(v){const t=new Date(v).getTime();return isFinite(t)?Math.floor(t/1000):0}
+let pendingImg=null, editingId=null, removeImgFlag=false, lastEntries=[], compressing=false;
+$('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
+function compressImg(file, maxDim, quality){
+ // resize+re-encode via canvas -> jauh lebih kecil (chart-screenshot 4-8MB PNG jadi ~150-400KB JPEG),
+ // efek samping BAGUS: metadata EXIF (lokasi GPS dll) otomatis kebuang krn di-re-encode dari pixel data.
+ return new Promise((resolve,reject)=>{
+  const img=new Image(); const url=URL.createObjectURL(file);
+  img.onload=()=>{
+   URL.revokeObjectURL(url);
+   let w=img.naturalWidth,h=img.naturalHeight;
+   if(w>maxDim||h>maxDim){const s=maxDim/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s)}
+   const c=document.createElement('canvas'); c.width=w;c.height=h;
+   const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+   resolve(c.toDataURL('image/jpeg',quality));
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('gagal baca gambar'))};
+  img.src=url;
+ });
+}
 function onPick(ev){
  const f=ev.target.files[0]; if(!f) return;
- if(f.size>2*1024*1024){$('jmsg').textContent='gambar >2MB, pilih yang lebih kecil';$('jmsg').style.color='var(--down)';ev.target.value='';return}
- $('jfname').textContent=f.name;
- const r=new FileReader();
- r.onload=()=>{pendingImg=r.result.split(',')[1];$('jprev').src=r.result;$('jprev').style.display='block'};
- r.readAsDataURL(f);
+ if(f.size>15*1024*1024){$('jmsg').textContent='file >15MB, kegedean buat diproses';$('jmsg').style.color='var(--down)';ev.target.value='';return}
+ removeImgFlag=false; compressing=true;
+ $('jfname').textContent='⟳ mengompres…'; $('jmsg').textContent='';
+ compressImg(f,1600,0.82).then(durl=>{
+  compressing=false;
+  const approxKB=Math.round(durl.length*0.75/1024);
+  $('jfname').textContent=f.name+' (~'+approxKB+'KB setelah kompres)';
+  pendingImg=durl.split(',')[1]; $('jprev').src=durl; $('jprev').style.display='block';
+ }).catch(_=>{compressing=false;$('jmsg').textContent='gagal kompres gambar';$('jmsg').style.color='var(--down)';ev.target.value=''});
+}
+function removeImg(){pendingImg=null;removeImgFlag=true;$('jprev').style.display='none';$('jprev').src='';$('jrmimg').style.display='none';$('jfname').textContent='(gambar akan dihapus)'}
+function resetForm(){
+ $('jnote').value='';$('jsym').value='';$('jfile').value='';$('jfname').textContent='';$('jprev').style.display='none';$('jprev').src='';
+ $('jmodal').value='';$('jentry').value='';$('jsl').value='';$('jlev').value='';
+ $('jdt').value=epochToLocalInput(Math.floor(Date.now()/1000));
+ pendingImg=null;editingId=null;removeImgFlag=false;
+ $('jformtitle').textContent='Entri Baru';$('jcancelWrap').style.display='none';$('jsavebtn').textContent='Simpan Entri';$('jrmimg').style.display='none';
+}
+function cancelEdit(){resetForm()}
+function editEntry(id){
+ const e=lastEntries.find(x=>x.id===id); if(!e) return;
+ editingId=id; pendingImg=null; removeImgFlag=false;
+ $('jnote').value=e.note||'';$('jsym').value=e.sym||'';$('jdt').value=epochToLocalInput(e.ts);
+ $('jmodal').value=e.modal??'';$('jentry').value=e.entry??'';$('jsl').value=e.sl??'';$('jlev').value=e.lev??'';
+ $('jfile').value='';
+ if(e.img){$('jprev').src='/journal_img/'+e.img;$('jprev').style.display='block';$('jfname').textContent='(gambar tersimpan — pilih file baru utk ganti)';$('jrmimg').style.display='inline-block'}
+ else{$('jprev').style.display='none';$('jfname').textContent='';$('jrmimg').style.display='none'}
+ $('jformtitle').textContent='Edit Entri';$('jcancelWrap').style.display='inline-block';$('jsavebtn').textContent='Update Entri';
+ window.scrollTo({top:0,behavior:'smooth'});
 }
 function saveEntry(){
- const note=$('jnote').value.trim(), sym=$('jsym').value.trim();
- if(!note && !pendingImg){$('jmsg').textContent='isi catatan atau tempel screenshot dulu';$('jmsg').style.color='var(--down)';return}
+ if(compressing){$('jmsg').textContent='tunggu kompresi gambar selesai…';$('jmsg').style.color='var(--amber)';return}
+ const note=$('jnote').value.trim(), sym=$('jsym').value.trim(), ts=localInputToEpoch($('jdt').value);
+ const modal=$('jmodal').value, entry=$('jentry').value, sl=$('jsl').value, lev=$('jlev').value;
+ if(!note && !pendingImg && !(editingId && !removeImgFlag)){$('jmsg').textContent='isi catatan atau tempel screenshot dulu';$('jmsg').style.color='var(--down)';return}
  $('jmsg').textContent='⟳ menyimpan…';$('jmsg').style.color='var(--amber)';
- fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'add',note,sym,img_b64:pendingImg})})
+ const payload=editingId
+  ?{act:'edit',id:editingId,note,sym,ts,modal,entry,sl,lev,img_b64:pendingImg,remove_img:removeImgFlag}
+  :{act:'add',note,sym,ts,modal,entry,sl,lev,img_b64:pendingImg};
+ fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
   .then(r=>r.json()).then(d=>{
    $('jmsg').textContent=d.ok?'✓ tersimpan':(d.msg||'gagal');$('jmsg').style.color=d.ok?'var(--up)':'var(--down)';
-   if(d.ok){$('jnote').value='';$('jsym').value='';$('jfile').value='';$('jfname').textContent='';$('jprev').style.display='none';pendingImg=null;loadJournal()}
+   if(d.ok){resetForm();loadJournal()}
   }).catch(_=>{$('jmsg').textContent='gagal';$('jmsg').style.color='var(--down)'});
 }
 function delEntry(id){
  if(!confirm('Hapus entri ini?'))return;
- fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'del',id})}).then(r=>r.json()).then(_=>loadJournal());
+ fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({act:'del',id})}).then(r=>r.json()).then(_=>{if(editingId===id)resetForm();loadJournal()});
 }
 function loadJournal(){
  fetch('/api/journal').then(r=>r.json()).then(d=>{
-  const es=(d.entries||[]).slice().reverse();
+  lastEntries=d.entries||[];
+  const es=lastEntries.slice().sort((a,b)=>b.ts-a.ts);
   if(!es.length){$('jlist').innerHTML='<div style="font-size:12px;color:var(--dim)">belum ada entri</div>';return}
   $('jlist').innerHTML=es.map(e=>{
-   const dt=new Date(e.ts*1000).toLocaleString();
+   const dtxt=new Date(e.ts*1000).toLocaleString();
    const img=e.img?('<img src="/journal_img/'+e.img+'" style="max-width:100%;max-height:260px;border-radius:6px;margin-top:8px;cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'';
    const symtag=e.sym?('<span class=tag style="margin-right:8px">'+esc(e.sym)+'</span>'):'';
+   const stat=[];
+   if(e.modal!=null)stat.push('<span>Modal <b style="color:var(--ink)">$'+Number(e.modal).toLocaleString()+'</b></span>');
+   if(e.entry!=null)stat.push('<span>Entry <b style="color:var(--ink)">$'+Number(e.entry).toLocaleString()+'</b></span>');
+   if(e.sl!=null)stat.push('<span>SL <b style="color:var(--down)">$'+Number(e.sl).toLocaleString()+'</b></span>');
+   if(e.lev!=null)stat.push('<span>Lev <b style="color:var(--amber)">'+Number(e.lev)+'x</b></span>');
+   const statline=stat.length?('<div style="font-size:11.5px;color:var(--dim);margin-top:7px;display:flex;gap:14px;flex-wrap:wrap">'+stat.join('')+'</div>'):'';
    return '<div style="border:1px solid var(--line);border-radius:6px;padding:11px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:10.5px;color:var(--dim)">'+symtag+dt+'</span>'
-    +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><span style="font-size:10.5px;color:var(--dim)">'+symtag+esc(dtxt)+'</span>'
+    +'<span style="display:flex;gap:6px"><button onclick="editEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--amber2);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">edit</button>'
+    +'<button onclick="delEntry(\''+e.id+'\')" style="background:none;border:1px solid var(--line);color:var(--down);border-radius:4px;cursor:pointer;font-size:10px;padding:3px 8px">hapus</button></span></div>'
+    +statline
     +(e.note?('<div style="font-size:12.5px;margin-top:7px;white-space:pre-wrap;line-height:1.5">'+esc(e.note)+'</div>'):'')
     +img+'</div>';
   }).join('');
@@ -1100,6 +1169,28 @@ class H(BaseHTTPRequestHandler):
                 n=max(0,min(int(self.headers.get("Content-Length",0)),cap)); body=json.loads(self.rfile.read(n)) if n else {}
             except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"bad body"}')
             act=body.get("act","add")
+            def _mkts():   # ts dari client (datetime-local, epoch detik) -- fallback now kalau kosong/rusak
+                try:
+                    v=int(body.get("ts") or 0)
+                    return v if 0<v<4102444800 else int(_time.time())   # sanity: >0 dan <thn2100
+                except Exception: return int(_time.time())
+            def _num(key):   # -> float atau None (SL/leverage/dll opsional, jangan paksa 0)
+                v=body.get(key)
+                if v in (None,""): return None
+                try:
+                    f=float(v)
+                    return f if abs(f)<1e12 else None   # sanity cap, tolak angka absurd
+                except Exception: return None
+            def _saveimg(b64):   # -> (img_id, err_response) -- err_response None kalau sukses
+                try: raw=base64.b64decode(b64, validate=True)
+                except Exception: return None,self._s(400,"application/json",'{"ok":false,"msg":"gambar tak valid"}')
+                if len(raw)>JCAP_IMG_BYTES: return None,self._s(400,"application/json",'{"ok":false,"msg":"gambar >2MB"}')
+                ext=_detect_img(raw)
+                if not ext: return None,self._s(400,"application/json",'{"ok":false,"msg":"format gambar tak didukung (jpg/png/webp)"}')
+                os.makedirs(JIMG_DIR,exist_ok=True)
+                img_id=_secrets.token_hex(16)+"."+ext
+                with open(os.path.join(JIMG_DIR,img_id),"wb") as f: f.write(raw)
+                return img_id,None
             with _JLK:
                 d=_jload(); mine=d.setdefault(jusr,[])
                 if act=="del":
@@ -1111,20 +1202,37 @@ class H(BaseHTTPRequestHandler):
                             try: os.remove(os.path.join(JIMG_DIR,e["img"]))
                             except Exception: pass
                     return self._s(200,"application/json",'{"ok":true}')
+                if act=="edit":
+                    iid=body.get("id",""); tgt=next((e for e in mine if e.get("id")==iid),None)
+                    if not tgt: return self._s(404,"application/json",'{"ok":false,"msg":"entri tak ditemukan"}')
+                    tgt["note"]=str(body.get("note") or "")[:2000]; tgt["sym"]=str(body.get("sym") or "")[:20]
+                    tgt["ts"]=_mkts()
+                    tgt["modal"]=_num("modal"); tgt["entry"]=_num("entry"); tgt["sl"]=_num("sl"); tgt["lev"]=_num("lev")
+                    if body.get("remove_img"):
+                        if tgt.get("img"):
+                            try: os.remove(os.path.join(JIMG_DIR,tgt["img"]))
+                            except Exception: pass
+                        tgt["img"]=None
+                    elif body.get("img_b64"):
+                        img_id,err=_saveimg(body["img_b64"])
+                        if err: return err
+                        old=tgt.get("img")
+                        tgt["img"]=img_id
+                        if old:
+                            try: os.remove(os.path.join(JIMG_DIR,old))
+                            except Exception: pass
+                    d[jusr]=mine; _jsave(d)
+                    return self._s(200,"application/json",json.dumps({"ok":True,"entry":tgt}))
+                # act == add
                 if len(mine)>=JCAP_ENTRIES:
                     return self._s(200,"application/json",json.dumps({"ok":False,"msg":f"limit {JCAP_ENTRIES} entri tercapai, hapus yg lama dulu"}))
                 note=str(body.get("note") or "")[:2000]; sym=str(body.get("sym") or "")[:20]
                 img_id=None; b64=body.get("img_b64")
                 if b64:
-                    try: raw=base64.b64decode(b64, validate=True)
-                    except Exception: return self._s(400,"application/json",'{"ok":false,"msg":"gambar tak valid"}')
-                    if len(raw)>JCAP_IMG_BYTES: return self._s(400,"application/json",'{"ok":false,"msg":"gambar >2MB"}')
-                    ext=_detect_img(raw)
-                    if not ext: return self._s(400,"application/json",'{"ok":false,"msg":"format gambar tak didukung (jpg/png/webp)"}')
-                    os.makedirs(JIMG_DIR,exist_ok=True)
-                    img_id=_secrets.token_hex(16)+"."+ext
-                    with open(os.path.join(JIMG_DIR,img_id),"wb") as f: f.write(raw)
-                entry={"id":_secrets.token_hex(8),"ts":int(_time.time()),"note":note,"sym":sym,"img":img_id}
+                    img_id,err=_saveimg(b64)
+                    if err: return err
+                entry={"id":_secrets.token_hex(8),"ts":_mkts(),"note":note,"sym":sym,"img":img_id,
+                       "modal":_num("modal"),"entry":_num("entry"),"sl":_num("sl"),"lev":_num("lev")}
                 mine.append(entry); d[jusr]=mine; _jsave(d)
             return self._s(200,"application/json",json.dumps({"ok":True,"entry":entry}))
         if not (local or (usr and is_admin(usr)) or self._auth_ok()): return self._need_auth()   # POST admin = localhost ATAU session-admin ATAU service basic-auth
@@ -1198,9 +1306,17 @@ class H(BaseHTTPRequestHandler):
             mine=_jload().get(jusr,[])
             if not any(e.get("img")==iid for e in mine): return self._s(404,"text/plain","not found")   # ownership check -- id server-random tapi tetap wajib punya sendiri
             fp=os.path.join(JIMG_DIR,iid)
-            if not os.path.isfile(fp): return self._s(404,"text/plain","not found")
-            ct={"jpg":"image/jpeg","png":"image/png","webp":"image/webp"}[iid.rsplit(".",1)[-1]]
-            with open(fp,"rb") as f: return self._s(200,ct,f.read())
+            if not os.path.isfile(fp) or os.path.getsize(fp)>JCAP_IMG_BYTES: return self._s(404,"text/plain","not found")
+            with open(fp,"rb") as f: raw=f.read()
+            ext2=_detect_img(raw)   # re-verify magic-bytes SAAT SERVE juga (bukan cuma upload) -- kalau file di disk somehow beda dari ekstensi namanya, refuse drpd percaya buta
+            if not ext2 or iid.rsplit(".",1)[-1]!=ext2: return self._s(415,"text/plain","corrupt/mismatched file, refused")
+            ct={"jpg":"image/jpeg","png":"image/png","webp":"image/webp"}[ext2]
+            self.send_response(200); self.send_header("Content-Type",ct); self.send_header("Content-Length",str(len(raw)))
+            self.send_header("X-Content-Type-Options","nosniff"); self.send_header("Content-Disposition","inline")
+            self.send_header("Cache-Control","private, max-age=3600"); self.end_headers()
+            try: self.wfile.write(raw)
+            except (BrokenPipeError,ConnectionResetError): pass
+            return
         if path.startswith("/api/") and not (local or usr or self._auth_ok()):   # API anti-scrape: localhost ATAU login (cookie) ATAU service basic-auth (ai_gen)
             return self._s(401,"application/json",'{"error":"login required"}')
         if path=="/api/btc_v20":
